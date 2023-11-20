@@ -4,9 +4,26 @@
  * 注意动画文件有两种拆分方式
  * 实现删除指定编号的动画图档
  * 实现合并动画图档
+ * 
+ * 
+ * 
  */
 
+//TODO: 将方法移入fn.js, 为后续使用Electron创建app做好准备
+
+
 const fs = require('fs');
+const loger = require('./modules/log');
+
+function log(str, type='main'){
+    if(type == 'main'){
+        loger.main.info(str);
+    }else if(type == 'out'){
+        loger.main.info(str);
+    }
+}
+
+
 const { GraphicInfo, Graphic, AnimeInfo, Anime, Action, Frame } = require('./modules/base');
 
 const gInfoPath = './bin/GraphicInfo_PUK3_1.bin';
@@ -42,7 +59,7 @@ function readCGInfoFile(pathList, callback) {
 
     let p0 = new Promise((resolve, reject) => {
         getGraphicInfo(pathList.graphicInfoPath, graphicInfoArr => {
-            console.log(`读取graphicInfo完成, 共有[${graphicInfoArr.length}]条图片数据`);
+            log(`读取graphicInfo完成, 共有[${graphicInfoArr.length}]条图片数据`);
             GInfoList = graphicInfoArr;
             resolve(graphicInfoArr);
         });
@@ -50,7 +67,7 @@ function readCGInfoFile(pathList, callback) {
 
     let p1 = new Promise((resolve, reject) => {
         getAnimeInfo(pathList.animeInfoPath, animeInfoArr => {
-            console.log(`读取animeInfo完成, 共有[${animeInfoArr.length}]条动画数据`);
+            log(`读取animeInfo完成, 共有[${animeInfoArr.length}]条动画数据`);
             AInfoList = animeInfoArr;
             resolve(animeInfoArr);
         });
@@ -69,7 +86,7 @@ function readCGInfoFile(pathList, callback) {
 function getGraphicInfo(path, callback) {
     fs.readFile(path, (err, data) => {
         if (err) {
-            console.log('read err', err);
+            log('read err', err);
             return;
         }
 
@@ -87,9 +104,6 @@ function getGraphicInfo(path, callback) {
 }
 
 
-
-
-
 function getGraphicDataList(path, gList, nameSpace, passHave = true, callback) {
     let _info = gList.shift();
     if (_info) {
@@ -101,22 +115,22 @@ function getGraphicDataList(path, gList, nameSpace, passHave = true, callback) {
 
             fs.readdir(dataFilePath, (err, dirList) => {
                 if (dirList.includes(dataFileName)) {
-                    // console.log(`[${_info.imgNum}]文件已存在, 跳过`);
+                    // log(`[${_info.imgNum}]文件已存在, 跳过`);
                     getGraphicDataList(path, gList, nameSpace, passHave, callback);
                 } else {
                     getGraphicData(path, _info, graphicData => {
                         if (graphicData) {
-                            console.log(`读取[${_info.imgNum}]完成, 开始写入文件`);
+                            log(`读取[${_info.imgNum}]完成, 开始写入文件`);
                             let p0 = new Promise((resolve, reject) => {
                                 saveGraphicInfo(_info, nameSpace, () => {
-                                    console.log(`写入GraphicInfo[${_info.imgNum}]完成`);
+                                    log(`写入GraphicInfo[${_info.imgNum}]完成`);
                                     resolve();
                                 });
                             });
 
                             let p1 = new Promise((resolve, reject) => {
                                 saveGraphicData(_info.imgNum, graphicData, nameSpace, () => {
-                                    console.log(`写入Graphic[${_info.imgNum}]完成`);
+                                    log(`写入Graphic[${_info.imgNum}]完成`);
                                     resolve();
                                 });
                             });
@@ -125,7 +139,7 @@ function getGraphicDataList(path, gList, nameSpace, passHave = true, callback) {
                                 getGraphicDataList(path, gList, nameSpace, passHave, callback);
                             });
                         } else {
-                            console.log(`读取[${_info.imgNum}]失败, 继续下一条`);
+                            log(`读取[${_info.imgNum}]失败, 继续下一条`);
                             getGraphicDataList(path, gList, nameSpace, passHave, callback);
                         }
                     });
@@ -134,17 +148,17 @@ function getGraphicDataList(path, gList, nameSpace, passHave = true, callback) {
         } else {
             getGraphicData(path, _info, graphicData => {
                 if (graphicData) {
-                    console.log(`读取[${_info.imgNum}]完成, 开始写入文件`);
+                    log(`读取[${_info.imgNum}]完成, 开始写入文件`);
                     let p0 = new Promise((resolve, reject) => {
                         saveGraphicInfo(_info, nameSpace, () => {
-                            console.log(`写入GraphicInfo[${_info.imgNum}]完成`);
+                            log(`写入GraphicInfo[${_info.imgNum}]完成`);
                             resolve();
                         });
                     });
 
                     let p1 = new Promise((resolve, reject) => {
                         saveGraphicData(_info.imgNum, graphicData, nameSpace, () => {
-                            console.log(`写入Graphic[${_info.imgNum}]完成`);
+                            log(`写入Graphic[${_info.imgNum}]完成`);
                             resolve();
                         });
                     });
@@ -153,7 +167,7 @@ function getGraphicDataList(path, gList, nameSpace, passHave = true, callback) {
                         getGraphicDataList(path, gList, nameSpace, passHave, callback);
                     });
                 } else {
-                    console.log(`读取[${_info.imgNum}]失败, 继续下一条`);
+                    log(`读取[${_info.imgNum}]失败, 继续下一条`);
                     getGraphicDataList(path, gList, nameSpace, passHave, callback);
                 }
             });
@@ -163,10 +177,11 @@ function getGraphicDataList(path, gList, nameSpace, passHave = true, callback) {
     }
 }
 
+
 function getGraphicData(path, info, callback) {
     fs.readFile(path, (err, data) => {
         if (err) {
-            console.log('read err', err);
+            log('read err', err);
             callback(null);
             return;
         }
@@ -185,13 +200,14 @@ function getGraphicData(path, info, callback) {
             //  && imgSize == info.imgSize
             callback(graphic);
         } else {
-            console.log(startBlock, version, imgWidth, imgHeight, imgSize);
-            console.log(imgWidth == info.imgWidth, imgHeight == info.imgHeight, imgSize == info.imgSize);
-            console.log(info.imgSize, imgSize);
+            log(startBlock, version, imgWidth, imgHeight, imgSize);
+            log(imgWidth == info.imgWidth, imgHeight == info.imgHeight, imgSize == info.imgSize);
+            log(info.imgSize, imgSize);
             callback(null);
         }
     });
 }
+
 
 function num2Hex(num, len) {
     let numHex = num.toString(16);
@@ -215,53 +231,56 @@ function num2Hex(num, len) {
     return buffer;
 }
 
+
 function saveGraphicInfo(info, nameSpace, callback) {
     let fileName = `GraphicInfo_${nameSpace}_${info.imgNum}.bin`;
     let path = `./output/${nameSpace}/graphicInfo/${fileName}`;
     fs.open(path, 'w+', (err, fd) => {
         if (err) {
-            console.log(`open ${path} faild`, err);
+            log(`open ${path} faild`, err);
             callback(false);
             return;
         }
 
         fs.write(fd, info.buffer, err => {
             if (err) {
-                console.log(`${fileName} 写入失败`, err);
+                log(`${fileName} 写入失败`, err);
                 callback(false);
                 return;
             }
 
             fs.close(fd);
-            console.log(`${fileName} 写入完成`);
+            log(`${fileName} 写入完成`);
             callback(true);
         });
     });
 }
+
 
 function saveGraphicData(imgNum, data, nameSpace, callback) {
     let fileName = `Graphic_${nameSpace}_${imgNum}.bin`;
     let path = `./output/${nameSpace}/graphic/${fileName}`;
     fs.open(path, 'w+', (err, fd) => {
         if (err) {
-            console.log(`open ${path} faild`, err);
+            log(`open ${path} faild`, err);
             callback(false);
             return;
         }
 
         fs.write(fd, data.buffer, err => {
             if (err) {
-                console.log(`${fileName} 写入失败`, err);
+                log(`${fileName} 写入失败`, err);
                 callback(false);
                 return;
             }
 
             fs.close(fd);
-            console.log(`${fileName} 写入完成`);
+            log(`${fileName} 写入完成`);
             callback(true);
         });
     });
 }
+
 
 function addGraphicData(filePath, nameSpace, callback) {
     fs.readFile(filePath, (err, fileDataHex) => {
@@ -269,36 +288,37 @@ function addGraphicData(filePath, nameSpace, callback) {
         let path = `./output/${nameSpace}/${fileName}`;
         fs.open(path, 'a+', (err, fd) => {
             if (err) {
-                console.log(`open ${path} faild`, err);
+                log(`open ${path} faild`, err);
                 callback(false);
                 return;
             }
 
             fs.write(fd, fileDataHex, err => {
                 if (err) {
-                    console.log(`${fileName} 写入失败`, err);
+                    log(`${fileName} 写入失败`, err);
                     callback(false);
                     return;
                 }
 
                 fs.close(fd);
-                // console.log(`${filePath} 写入完成`);
+                // log(`${filePath} 写入完成`);
                 callback(true);
             });
         });
     });
 }
 
+
 function getAnimeInfo(path, callback) {
     fs.readFile(path, (err, data) => {
         if (err) {
-            console.log('read err', err);
+            log('read err', err);
             return;
         }
 
         let infoArr = [];
         let len = data.length / 12;
-        // console.log(len);
+        // log(len);
         for (let i = 0; i < len; i++) {
             let _buffer = data.slice(i * 12, i * 12 + 12);
             infoArr.push(new AnimeInfo(_buffer));
@@ -307,7 +327,6 @@ function getAnimeInfo(path, callback) {
         callback(infoArr);
     });
 }
-
 
 
 /**
@@ -320,7 +339,7 @@ function getAnimeInfo(path, callback) {
 function getAnimeData(path, info, endAddr, callback) {
     fs.readFile(path, (err, data) => {
         if (err) {
-            console.log('read err', err);
+            log('read err', err);
             return;
         }
 
@@ -337,20 +356,20 @@ function saveAnimeInfo(info, nameSpace, callback) {
     let path = `./output/${fileName}`;
     fs.open(path, 'w+', (err, fd) => {
         if (err) {
-            console.log(`open ${path} faild`, err);
+            log(`open ${path} faild`, err);
             callback(false);
             return;
         }
 
         fs.write(fd, info.buffer, err => {
             if (err) {
-                console.log(`${fileName} 写入失败`, err);
+                log(`${fileName} 写入失败`, err);
                 callback(false);
                 return;
             }
 
             fs.close(fd);
-            console.log(`${fileName} 写入完成`);
+            log(`${fileName} 写入完成`);
             callback(true);
         });
     });
@@ -361,32 +380,32 @@ function saveAnimeData(animeNo, data, nameSpace, callback) {
     let path = `./output/${fileName}`;
     fs.open(path, 'w+', (err, fd) => {
         if (err) {
-            console.log(`open ${path} faild`, err);
+            log(`open ${path} faild`, err);
             callback(false);
             return;
         }
 
         fs.write(fd, data.buffer, err => {
             if (err) {
-                console.log(`${fileName} 写入失败`, err);
+                log(`${fileName} 写入失败`, err);
                 callback(false);
                 return;
             }
 
             fs.close(fd);
-            console.log(`${fileName} 写入完成`);
+            log(`${fileName} 写入完成`);
             callback(true);
         });
     });
 }
 
 function getAnimeById(pathList, animeId, callback) {
-    console.log('======= 任务开始 =======');
+    log('======= 任务开始 =======');
     readCGInfoFile(pathList, infoDataList => {
         let GInfoArr = infoDataList[0];
         let AInfoArr = infoDataList[1];
 
-        console.log(`开始查找[${animeId}]的动画数据`);
+        log(`开始查找[${animeId}]的动画数据`);
 
         let targetAnimeInfo, targetIdx;
 
@@ -406,7 +425,7 @@ function getAnimeById(pathList, animeId, callback) {
             }
 
             getAnimeData(pathList.animePath, targetAnimeInfo, endAddr, animeData => {
-                console.log(`读取Anime文件完成, 共需要[${animeData.imgList.length}]张图片, 开始查找图片信息文件`);
+                log(`读取Anime文件完成, 共需要[${animeData.imgList.length}]张图片, 开始查找图片信息文件`);
 
                 // 从GInfoArr中找到需要的图片信息
                 let needImgInfoArr = [];
@@ -417,16 +436,16 @@ function getAnimeById(pathList, animeId, callback) {
 
                 let nameSpace = animeId;
 
-                console.log(`读取graphicInfo完成, 共有[${needImgInfoArr.length}]条图片数据待处理, 开始分割图片数据`);
+                log(`读取graphicInfo完成, 共有[${needImgInfoArr.length}]条图片数据待处理, 开始分割图片数据`);
                 GInfoList = Array.from(needImgInfoArr);
                 mkDataDir(nameSpace, () => {
 
                     getGraphicDataList(pathList.graphicPath, needImgInfoArr, nameSpace, true, () => {
-                        console.log('图片分割完成, 开始分割动画信息文件');
+                        log('图片分割完成, 开始分割动画信息文件');
 
                         fs.open(`./output/${nameSpace}/animeInfo/animeInfo_${nameSpace}.bin`, 'w+', (err, fd) => {
                             fs.write(fd, targetAnimeInfo.buffer, err => {
-                                console.log('动画信息文件分割完成, 开始分割动画文件');
+                                log('动画信息文件分割完成, 开始分割动画文件');
                                 fs.close(fd);
 
                                 let pArr = [];
@@ -438,10 +457,10 @@ function getAnimeById(pathList, animeId, callback) {
                                             fs.write(fd, _action.buffer, err => {
                                                 fs.close(fd);
                                                 if (err) {
-                                                    console.log(`./output/${nameSpace}/anime/${fileName} 写入失败`);
+                                                    log(`./output/${nameSpace}/anime/${fileName} 写入失败`);
                                                     reject();
                                                 } else {
-                                                    console.log(`./output/${nameSpace}/anime/${fileName} 写入完成`);
+                                                    log(`./output/${nameSpace}/anime/${fileName} 写入完成`);
                                                     resolve();
                                                 }
                                             });
@@ -452,7 +471,7 @@ function getAnimeById(pathList, animeId, callback) {
                                 }
 
                                 Promise.all(pArr).then(() => {
-                                    console.log('======= 任务完成 =======');
+                                    log('======= 任务完成 =======');
                                     callback();
                                 });
                             });
@@ -470,14 +489,14 @@ function getAnimeById(pathList, animeId, callback) {
 function splitGraphicFile(pathList) {
     let nameSpace = getNameSpace(pathList.graphicInfoPath);
     mkDataDir(nameSpace, (gInfoPath, gDataPath) => {
-        console.log(gInfoPath, gDataPath);
+        log(gInfoPath, gDataPath);
 
         getGraphicInfo(pathList.graphicInfoPath, graphicInfoArr => {
-            console.log(`读取graphicInfo完成, 共有[${graphicInfoArr.length}]条图片数据, \n开始分割图片数据`);
+            log(`读取graphicInfo完成, 共有[${graphicInfoArr.length}]条图片数据, \n开始分割图片数据`);
             GInfoList = graphicInfoArr;
 
             getGraphicDataList(pathList.graphicPath, graphicInfoArr, nameSpace, true, () => {
-                console.log('分割完成');
+                log('分割完成');
             });
         });
     });
@@ -486,7 +505,7 @@ function splitGraphicFile(pathList) {
 
 function mkDataDir(nameSpace, cb) {
     fs.readdir('./output', (err, dirList) => {
-        // console.log(dirList);
+        // log(dirList);
         if (dirList.includes(nameSpace)) {
             fs.readdir(`./output/${nameSpace}`, (err, dirList2) => {
                 let pArr = [];
@@ -559,11 +578,6 @@ function getNameSpace(path) {
 
 
 
-
-
-
-
-
 /**
  * 合并流程
  * 
@@ -597,7 +611,7 @@ function addToGraphic(oriGPath, tarGPath, oriInfoPath, tarInfoPath, callback) {
     let p0 = new Promise((resolve, reject) => {
         fs.readFile(tarGPath, (err, data) => {
             if (err) {
-                console.log(`读取[${tarGPath}]失败`, err);
+                log(`读取[${tarGPath}]失败`, err);
                 reject();
                 return;
             }
@@ -617,11 +631,11 @@ function addToGraphic(oriGPath, tarGPath, oriInfoPath, tarInfoPath, callback) {
         let addr = tarGraphicHex.length;
         let startNum = res[1];
 
-        console.log({ addr, startNum });
+        log({ addr, startNum });
 
         // 将oriGPath追加到tarGPath
         let oriGraphic = new Graphic(fs.readFileSync(oriGPath));
-        console.log(oriGraphic);
+        log(oriGraphic);
         let writeData = Buffer.concat(tarGraphicHex, oriGraphic.buffer);
         fs.open();
 
@@ -654,7 +668,7 @@ function addToGraphic(oriGPath, tarGPath, oriInfoPath, tarInfoPath, callback) {
  */
 function getFileList(path, start = null, end = null, callback) {
     let fileList = fs.readdirSync(path);
-    // console.log(fileList);
+    // log(fileList);
     if (start && end) {
         fileList = fileList.filter(fileName => {
             let fileNameArr = fileName.split('_');
@@ -726,7 +740,7 @@ function addAnimeById(animeId, tarPath, callback) {
         gInfoFileArr = dataList[2];
         gFileArr = dataList[3];
 
-        // console.log({ aInfoFileArr, aFileArr, gInfoFileArr, gFileArr });
+        // log({ aInfoFileArr, aFileArr, gInfoFileArr, gFileArr });
         // 获取tarGInfo文件中最后一条数据的编号,
         let pGetLastNum = new Promise((resolve, reject) => {
             getGInfoLastNum(tarGInfoPath, lastNum => {
@@ -738,7 +752,7 @@ function addAnimeById(animeId, tarPath, callback) {
         let pGetGHex = new Promise((resolve, reject) => {
             fs.readFile(tarGPath, (err, data) => {
                 if (err) {
-                    console.log(`读取[${tarGPath}]失败`, err);
+                    log(`读取[${tarGPath}]失败`, err);
                     reject();
                     return;
                 }
@@ -750,7 +764,7 @@ function addAnimeById(animeId, tarPath, callback) {
         let pGetGInfoHex = new Promise((resolve, reject) => {
             fs.readFile(tarGInfoPath, (err, data) => {
                 if (err) {
-                    console.log(`读取[${tarGInfoPath}]失败`, err);
+                    log(`读取[${tarGInfoPath}]失败`, err);
                     reject();
                     return;
                 }
@@ -782,12 +796,12 @@ function addAnimeById(animeId, tarPath, callback) {
                     let gFd = fs.openSync(tarGPath, 'a+');
                     fs.writeFileSync(gFd, _g.buffer);
                     fs.close(gFd);
-                    console.log(`写入[${_gPath}]到graphic完成`);
+                    log(`写入[${_gPath}]到graphic完成`);
 
                     let gInfoFd = fs.openSync(tarGInfoPath, 'a+');
                     fs.writeFileSync(gInfoFd, _gInfo.buffer);
                     fs.close(gInfoFd);
-                    console.log(`写入[${_gInfoPath}]到graphicInfo完成`);
+                    log(`写入[${_gInfoPath}]到graphicInfo完成`);
 
                     resolve({
                         oriImgNum: oriImgNum,
@@ -802,8 +816,8 @@ function addAnimeById(animeId, tarPath, callback) {
                 for (let i = 0; i < data.length; i++) {
                     imgNumDictionary[data[i].oriImgNum] = data[i].newImgNum;
                 }
-                console.log('gInfo文件, g文件写入完成');
-                console.log({ imgNumDictionary });
+                log('gInfo文件, g文件写入完成');
+                log({ imgNumDictionary });
                 // TODO: 开始写入动画文件
 
             });
@@ -811,14 +825,14 @@ function addAnimeById(animeId, tarPath, callback) {
     });
 }
 
-getAnimeById({
-    animeInfoPath: aInfoPath,
-    animePath: aPath,
-    graphicInfoPath: gInfoPath,
-    graphicPath: gPath
-}, 101780, data => {
-    console.log(data);
-});
+// getAnimeById({
+//     animeInfoPath: aInfoPath,
+//     animePath: aPath,
+//     graphicInfoPath: gInfoPath,
+//     graphicPath: gPath
+// }, 101780, data => {
+//     log(data);
+// });
 
 
 // addAnimeById(101780, {
@@ -827,5 +841,5 @@ getAnimeById({
 //     gInfoPath: gInfoPath,
 //     gPath: gPath
 // }, data => {
-//     console.log(data);
+//     log(data);
 // });
