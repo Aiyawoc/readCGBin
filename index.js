@@ -31,18 +31,26 @@ const gInfoPath = './bin/GraphicInfo_PUK3_1.bin';
 const gPath = './bin/Graphic_PUK3_1.bin';
 const aInfoPath = './bin/AnimeInfo_PUK3_2.bin';
 const aPath = './bin/Anime_PUK3_2.bin';
-const gInfoPathV3 = './bin/GraphicInfoV3_19.bin';
-const gPathV3 = './bin/GraphicV3_19.bin';
 
-const gInfoPath2 = './bin/GraphicInfo_Joy_EX_86.bin';
-const gPath2 = './bin/Graphic_Joy_EX_86.bin';
-const aInfoPath2 = './bin/AnimeInfo_Joy_EX_70.bin';
-const aPath2 = './bin/Anime_Joy_EX_70.bin';
+const gInfoPathBL = './bin/biliML/GraphicInfo_PUK3_1.bin';
+const gPathBL = './bin/biliML/Graphic_PUK3_1.bin';
+const aInfoPathBL = './bin/biliML/AnimeInfo_PUK3_2.bin';
+const aPathBL = './bin/biliML/Anime_PUK3_2.bin';
 
-const gInfoPath3 = './bin/Ginfo.bin';
-const gPath3 = './bin/G.bin';
-const aInfoPath3 = './bin/Ainfo.bin';
-const aPath3 = './bin/A.bin';
+const gInfoPathKY = './bin/KYML/GraphicInfo_PUK3_1.bin';
+const gPathKY = './bin/KYML/Graphic_PUK3_1.bin';
+const aInfoPathKY = './bin/KYML/AnimeInfo_PUK3_2.bin';
+const aPathKY = './bin/KYML/Anime_PUK3_2.bin';
+
+const gInfoPathV3 = './bin/V3/GraphicInfoV3_19.bin';
+const gPathV3 = './bin/V3/GraphicV3_19.bin';
+
+const gInfoPathEX = './bin/GraphicInfo_Joy_EX_86.bin';
+const gPathEX = './bin/Graphic_Joy_EX_86.bin';
+const aInfoPathEX = './bin/AnimeInfo_Joy_EX_70.bin';
+const aPathEX = './bin/Anime_Joy_EX_70.bin';
+
+
 
 let GInfoList = []; //存储图片信息的全局变量, 在读取Info文件时清空
 let GDataList = []; //存储图片数据的全局变量, 在读取Info文件时清空
@@ -102,6 +110,7 @@ function getGraphicInfo(path, callback) {
             infoArr.lastNode = gInfo;
         }
 
+        infoArr.length = len;
         callback(infoArr);
     });
 }
@@ -415,7 +424,7 @@ function getAnimeById(pathList, animeId, callback) {
         log(`开始查找[${animeId}]的动画数据`);
 
         let targetAnimeInfo, targetIdx;
-
+        
         for (let i = 0; i < AInfoArr.length; i++) {
             if (AInfoArr[i].animeId == animeId) {
                 targetAnimeInfo = AInfoArr[i];
@@ -487,6 +496,7 @@ function getAnimeById(pathList, animeId, callback) {
                 });
             });
         } else {
+            log(`未找到[${animeId}]的动画数据`);
             callback(-1);
             return;
         }
@@ -830,17 +840,17 @@ function addAnimeById(animeId, tarPath, callback) {
 }
 
 // getAnimeById({
-//     animeInfoPath: aInfoPath,
-//     animePath: aPath,
-//     graphicInfoPath: gInfoPath,
-//     graphicPath: gPath
-// }, 105604, data => {
+//     animeInfoPath: aInfoPathKY,
+//     animePath: aPathKY,
+//     graphicInfoPath: gInfoPathKY,
+//     graphicPath: gPathKY
+// }, 120099, data => {
 //     log('==== 读取任务完成 ====');
 // });
 
 // NOTE: 初心的g数据中, 头为16位而非20位, 因此, 如果要将初心的数据合到其它版本中, 可以尝试增加头文件中的16-20位为调色板, 或者将初心文件合并到其它目录
 // 108299
-addAnimeById(106798, {
+addAnimeById(120099, {
     aInfoPath: aInfoPath,
     aPath: aPath,
     gInfoPath: gInfoPath,
