@@ -10,13 +10,22 @@
  */
 
 
+Buffer.prototype.insert = function(addr, hex){
+    let oriHex = this;
+    let part0 = oriHex.slice(0, addr);
+    let part1 = oriHex.slice(addr, oriHex.length);
+    Buffer.concat([part0, hex, part1]);
+}
+
+
 class GraphicInfo {
     /**
      * 创建图片信息对象
      * @param {Buffer} buffer 十六进制图片信息数据
      */
-    constructor(buffer) {
+    constructor(buffer, isTF = false) {
         this.buffer = buffer;
+        this.isTF = isTF;
         // 0-3字节[LONG]反转为编号
         // 4-7字节[DWORD]指明圖片在數據文件中的起始位置
         // 8-11字节[DWORD]圖片數據塊的大小
@@ -143,16 +152,17 @@ class Graphic {
      * 创建图片数据对象
      * @param {Buffer} buffer 十六进制图片数据
      */
-    constructor(buffer) {
+    constructor(buffer, isTF=false) {
         this.buffer = buffer;
+        this.isTF = isTF;
         // 0-1字节固定为RD
         // 2字节为版本, 偶數表示未壓縮，按位圖存放；奇數則表示壓縮過
         // 3字节未知
         // 4-7字节图片宽度
         // 8-11字节图片高度
         // 12-15字节块大小
-        // 16-19为调色板
-        // 20-N为图片数据
+        // NOTE: 新版本16-19位为调色板, 20-N位为图片数据
+        // NOTE: 旧版本 16-N位为图片数据
     }
 
     get startBlock() {
@@ -199,6 +209,15 @@ class Graphic {
     set imgSize(num) {
         this.buffer.slice(12, 16).writeIntLE(num, 0, 4);
         return this.buffer.slice(12, 16).readIntLE(0, 4);
+    }
+
+    insertPalette(num=768){
+        // TODO: 插入调色板数据方法, 待验证
+        let part0 = this.buffer.slice(0, 16);
+        let paletteHex = Buffer.alloc(4);
+        paletteHex.writeIntLE(num, 0, 4);
+        let part1 = this.buffer.slice(16, this.buffer.length);
+        this.buffer = Buffer.concat([part0, paletteHex, part1]);
     }
 
     get palette() {

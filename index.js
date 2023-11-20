@@ -16,6 +16,7 @@ const fs = require('fs');
 const loger = require('./modules/log');
 
 function log(str, type='main'){
+    str = JSON.stringify(str);
     if(type == 'main'){
         loger.main.info(str);
     }else if(type == 'out'){
@@ -30,6 +31,8 @@ const gInfoPath = './bin/GraphicInfo_PUK3_1.bin';
 const gPath = './bin/Graphic_PUK3_1.bin';
 const aInfoPath = './bin/AnimeInfo_PUK3_2.bin';
 const aPath = './bin/Anime_PUK3_2.bin';
+const gInfoPathV3 = './bin/GraphicInfoV3_19.bin';
+const gPathV3 = './bin/GraphicV3_19.bin';
 
 const gInfoPath2 = './bin/GraphicInfo_Joy_EX_86.bin';
 const gPath2 = './bin/Graphic_Joy_EX_86.bin';
@@ -308,7 +311,11 @@ function addGraphicData(filePath, nameSpace, callback) {
     });
 }
 
-
+/**
+ * 读取AnimeInfo文件
+ * @param {String} path AnimeInfo文件路径
+ * @param {Function} callback 回调函数, 返回AnimeInfo对象数组
+ */
 function getAnimeInfo(path, callback) {
     fs.readFile(path, (err, data) => {
         if (err) {
@@ -596,68 +603,78 @@ function getGInfoLastNum(path, callback) {
 }
 
 /**
- * 将g文件添加到目标g文件末尾
- * @param {String} oriGPath 被添加的g文件地址
- * @param {String} tarGPath 目标g文件地址
- * @param {String} oriInfoPath 被添加的info文件地址
- * @param {String} tarInfoPath 目标info文件地址
- * @param {Function} callback 回调函数, 返回被添加的数据在目标文件中的地址
+ * 将gInfo文件列表和g文件列表合并到目标文件中
+ * @param {Object} imgNumDictionary 用于存放图片原始编号与新编号的字典
+ * @param {Array} gInfoPathArr 待合并的gInfo文件地址数组
+ * @param {Array} gPathArr 待合并的g文件地址数组
+ * @param {Number} startNum 起始编号
+ * @param {Number} startAddr 起始地址
+ * @param {String} tarGPath 目标G文件地址
+ * @param {String} tarGInfoPath 目标GINFO文件地址
+ * @param {Function} callback 回调函数
+ * @returns 
+ * //BUG: 除第一条g数据外, 从第二条起拼接均不正常, 检查起始addr等
  */
-function addToGraphic(oriGPath, tarGPath, oriInfoPath, tarInfoPath, callback) {
-    // 读取tarPath文件, 获取当前size, 作为下一条的起始地址
-    // 读取oriPath文件
-    // 将oriPath文件追加到tarPath文件
-    // 返回起始地址
-    let p0 = new Promise((resolve, reject) => {
-        fs.readFile(tarGPath, (err, data) => {
-            if (err) {
-                log(`读取[${tarGPath}]失败`, err);
-                reject();
-                return;
-            }
+function addGraphicListToFile(imgNumDictionary, gInfoPathArr, gPathArr, startNum, startAddr, tarGPath, tarGInfoPath, callback){
+    if(gInfoPathArr.length !== gPathArr.length){
+        callback(false);
+        log('gInfo文件数量与g文件数量不同, 退出');
+        return;
+    }
 
-            resolve(data);
-        });
-    });
+    let gInfoPath = gInfoPathArr.shift();
+    let gPath = gPathArr.shift();
+    if(gInfoPath && gPath){
+        let _gInfo = new GraphicInfo(fs.readFileSync(gInfoPath));
+        let _g = new Graphic(fs.readFileSync(gPath));
 
-    let p1 = new Promise((resolve, reject) => {
-        getGInfoLastNum(tarInfoPath, lastNum => {
-            resolve(lastNum + 1);
-        });
-    });
+        //NOTE: 有些图片资源imgSize值与buffer.length不同, 且多为0x30, 原因不明, 将其改为数据大小
+        _g.imgSize = _g.buffer.length;
+        
+        let oriImgNum = _gInfo.imgNum;
+        _gInfo.imgNum = startNum;
+        _gInfo.addr = startAddr;
+        startNum ++;
+        startAddr = startAddr + _g.buffer.length;
+        imgNumDictionary[oriImgNum] = _gInfo.imgNum;
 
-    Promise.all([p0, p1]).then(res => {
-        let tarGraphicHex = res[0];
-        let addr = tarGraphicHex.length;
-        let startNum = res[1];
+        let tarGFD = fs.openSync(tarGPath, 'a+');
+        fs.writeFileSync(tarGFD, _g.buffer);
+        fs.close(tarGFD);
+        log(`写入[${gPath}]到graphic完成`);
 
-        log({ addr, startNum });
+        let tarGInfoFD = fs.openSync(tarGInfoPath, 'a+');
+        fs.writeFileSync(tarGInfoFD, _gInfo.buffer);
+        fs.close(tarGInfoFD);
+        log(`写入[${gInfoPath}]到graphicInfo完成`);
 
-        // 将oriGPath追加到tarGPath
-        let oriGraphic = new Graphic(fs.readFileSync(oriGPath));
-        log(oriGraphic);
-        let writeData = Buffer.concat(tarGraphicHex, oriGraphic.buffer);
-        fs.open();
-
-        // 读取并修改oriInfoPath文件
-
-        // 将oriInfoPath追加到tarInfoPath
-
-        // 返回info数据, 供添加anime方法调用
-
-
-        // let oriFileHEX = fs.readFileSync(oriGPath);
-        // let fd = fs.openSync(tarGPath, 'a+');
-        // fs.writeFileSync(fd, oriFileHEX);
-        // fs.close(fd);
-        // callback(addr);
-    });
-
-
-
+        addGraphicListToFile(imgNumDictionary, gInfoPathArr, gPathArr, startNum, startAddr, tarGPath, tarGInfoPath, callback);
+    }else{
+        callback();
+    }
 }
 
+function addAnimeListToFile(imgNumDictionary, aPathArr, tarAPath,callback){
+    let aPath = aPathArr.shift();
+    if(aPath){
+        let _anime = new Anime(fs.readFileSync(aPath));
+        let frames = _anime.actions[0].frames;
+        // 修改frames中的图片编号为imgNumDictionary中的新编号
+        for(let i=0;i<frames.length;i++){
+            let _frame = frames[i];
+            _frame.imgNum = imgNumDictionary[`${_frame.imgNum}`];
+        }
 
+        // 将待写入a文件追加到目标a文件中
+        let tarAFD = fs.openSync(tarAPath, 'a+');
+        fs.writeFileSync(tarAFD, _anime.buffer);
+        fs.closeSync(tarAFD);
+        log(`写入[${aPath}]到anime完成`);
+        addAnimeListToFile(imgNumDictionary, aPathArr, tarAPath,callback);
+    }else{
+        callback();
+    }
+}
 
 /**
  * 读取目录中的文件
@@ -761,65 +778,52 @@ function addAnimeById(animeId, tarPath, callback) {
             });
         });
 
-        let pGetGInfoHex = new Promise((resolve, reject) => {
-            fs.readFile(tarGInfoPath, (err, data) => {
-                if (err) {
-                    log(`读取[${tarGInfoPath}]失败`, err);
-                    reject();
-                    return;
-                }
 
-                resolve(data);
-            });
-        });
-
-        Promise.all([pGetLastNum, pGetGHex, pGetGInfoHex]).then(dataList => {
+        Promise.all([pGetLastNum, pGetGHex]).then(dataList => {
             let startNum = dataList[0];
             let tarGHEX = dataList[1];
-            let tarGInfoHEX = dataList[2];
             let startAddr = tarGHEX.length;
-            let pArr = [];
 
             // 批量读取gInfo文件, g文件, 修改gInfo文件的起始编号, addr
+            addGraphicListToFile(imgNumDictionary, gInfoFileArr, gFileArr, startNum, startAddr, tarGPath, tarGInfoPath, ()=>{
+                log('graphicInfo文件, graphic文件写入完成, 开始写入动画文件');
 
-            for (let i = 0; i < gInfoFileArr.length; i++) {
-                let _p = new Promise((resolve, reject) => {
-                    let _gInfoPath = gInfoFileArr[i];
-                    let _gPath = gFileArr[i];
-                    let _gInfo = new GraphicInfo(fs.readFileSync(_gInfoPath));
-                    let _g = new Graphic(fs.readFileSync(_gPath));
-                    let oriImgNum = _gInfo.imgNum;
-                    _gInfo.imgNum = startNum + i;
-                    _gInfo.addr = startAddr;
-                    startAddr = startAddr + _g.imgSize;
-                    // TODO: 用Promise无法保证顺序, 应该递归添加
-                    let gFd = fs.openSync(tarGPath, 'a+');
-                    fs.writeFileSync(gFd, _g.buffer);
-                    fs.close(gFd);
-                    log(`写入[${_gPath}]到graphic完成`);
-
-                    let gInfoFd = fs.openSync(tarGInfoPath, 'a+');
-                    fs.writeFileSync(gInfoFd, _gInfo.buffer);
-                    fs.close(gInfoFd);
-                    log(`写入[${_gInfoPath}]到graphicInfo完成`);
-
-                    resolve({
-                        oriImgNum: oriImgNum,
-                        newImgNum: startNum + i
+                // 读取目标tarAInfoPath文件, 获取下一个动画编号
+                let pGetTarAInfo = new Promise((resolve, reject)=>{
+                    getAnimeInfo(tarAInfoPath, aInfoArr=>{
+                        let last = aInfoArr[aInfoArr.length - 1];
+                        resolve(last.animeId+1);
                     });
                 });
 
-                pArr.push(_p);
-            }
+                // 读取目标tarAPath文件, 获取下一个动画起始地址
+                let pGetTarAPath = new Promise((resolve, reject)=>{
+                    let tarAHex = fs.readFileSync(tarAPath);
+                    resolve(tarAHex.length);
+                });
 
-            Promise.all(pArr).then(data => {
-                for (let i = 0; i < data.length; i++) {
-                    imgNumDictionary[data[i].oriImgNum] = data[i].newImgNum;
-                }
-                log('gInfo文件, g文件写入完成');
-                log({ imgNumDictionary });
-                // TODO: 开始写入动画文件
+                Promise.all([pGetTarAInfo, pGetTarAPath]).then(aDataList =>{
+                    // 读取待写入aInfo文件, 修改动画编号, 修改起始地址
+                    let startNum = aDataList[0];
+                    let startAddr = aDataList[1];
 
+                    let aInfo = new AnimeInfo(fs.readFileSync(aInfoFileArr[0]));
+                    aInfo.animeId = startNum;
+                    aInfo.addr = startAddr;
+
+                    // 将待写入aInfo文件, 追加到目标aInfo文件中
+                    let tarAInfoFD = fs.openSync(tarAInfoPath, 'a+');
+                    fs.writeFileSync(tarAInfoFD, aInfo.buffer);
+                    fs.closeSync(tarAInfoFD);
+                    log(`写入[${aInfoFileArr[0]}]到animeInfo文件完成`);
+
+                    // 批量(递归)将待写入a文件写入目标a文件
+                    addAnimeListToFile(imgNumDictionary, aFileArr, tarAPath, ()=>{
+                        log(`anime文件写入完成完成`);
+                        callback();
+                    });
+                });
+                
             });
         });
     });
@@ -830,16 +834,17 @@ function addAnimeById(animeId, tarPath, callback) {
 //     animePath: aPath,
 //     graphicInfoPath: gInfoPath,
 //     graphicPath: gPath
-// }, 101780, data => {
-//     log(data);
+// }, 105604, data => {
+//     log('==== 读取任务完成 ====');
 // });
 
-
-// addAnimeById(101780, {
-//     aInfoPath: aInfoPath,
-//     aPath: aPath,
-//     gInfoPath: gInfoPath,
-//     gPath: gPath
-// }, data => {
-//     log(data);
-// });
+// NOTE: 初心的g数据中, 头为16位而非20位, 因此, 如果要将初心的数据合到其它版本中, 可以尝试增加头文件中的16-20位为调色板, 或者将初心文件合并到其它目录
+// 108299
+addAnimeById(106798, {
+    aInfoPath: aInfoPath,
+    aPath: aPath,
+    gInfoPath: gInfoPath,
+    gPath: gPath
+}, () => {
+    log('==== 写入任务完成 ====');
+});
