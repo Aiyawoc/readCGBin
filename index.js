@@ -847,6 +847,8 @@ const gPathEX = './bin/Graphic_Joy_EX_86.bin';
 const aInfoPathEX = './bin/AnimeInfo_Joy_EX_70.bin';
 const aPathEX = './bin/Anime_Joy_EX_70.bin';
 
+
+// 从目标文件中拆分id为120099的数据
 // getAnimeById({
 //     animeInfoPath: aInfoPathKY,
 //     animePath: aPathKY,
@@ -856,7 +858,7 @@ const aPathEX = './bin/Anime_Joy_EX_70.bin';
 //     log('==== 读取任务完成 ====');
 // });
 
-// NOTE: 初心的g数据中, 头为16位而非20位, 因此, 如果要将初心的数据合到其它版本中, 可以尝试增加头文件中的16-20位为调色板, 或者将初心文件合并到其它目录
+// 将120099的数据写入目标文件中
 // 108299
 // addAnimeById(120099, {
 //     aInfoPath: aInfoPath,
@@ -868,7 +870,7 @@ const aPathEX = './bin/Anime_Joy_EX_70.bin';
 // });
 
 
-// 写入到空文件
+// 检查目标文件是否存在, 若不存在, 则创建空文件, 并将120099的数据写入
 // checkTarPath({
 //     aInfoPath: './bin/animeInfo.bin',
 //     aPath: './bin/anime.bin',
