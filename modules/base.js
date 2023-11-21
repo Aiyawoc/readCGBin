@@ -184,6 +184,15 @@ class Graphic {
         return this.buffer.slice(2, 3).readIntLE(0, 1);
     }
 
+    get pad(){
+        return this.buffer.slice(3, 4).readIntLE(0, 1);
+    }
+
+    set pad(num){
+        this.buffer.slice(3, 4).writeIntLE(num, 0, 1);
+        return this.buffer.slice(3, 4).readIntLE(0, 1);
+    }
+
     get imgWidth() {
         return this.buffer.slice(4, 8).readIntLE(0, 4);
     }
@@ -211,35 +220,60 @@ class Graphic {
         return this.buffer.slice(12, 16).readIntLE(0, 4);
     }
 
-    insertPalette(num=768){
-        // TODO: 插入调色板数据方法, 待验证
+    insertpalSize(num=768){
+        if(this.version & 2){
+            return this.buffer.slice(16, 20).readIntLE(0, 4);
+        }
+        
         let part0 = this.buffer.slice(0, 16);
         let paletteHex = Buffer.alloc(4);
         paletteHex.writeIntLE(num, 0, 4);
         let part1 = this.buffer.slice(16, this.buffer.length);
         this.buffer = Buffer.concat([part0, paletteHex, part1]);
+        return this.buffer.slice(16, 20).readIntLE(0, 4);
     }
 
-    get palette() {
-        return this.buffer.slice(16, 20);
+    get palSize() {
+        if(this.version & 2){
+            return this.buffer.slice(16, 20);
+        }
+        return 0;
     }
 
-    set palette(hex) {
-        // TODO:待验证调色板是以何方式存储的
-        return this.buffer.slice(16, 20);
+    set palSize(num) {
+        if(this.version & 2){
+            return this.buffer.slice(16, 20).writeIntLE(num, 0, 4);
+        }
+        return 0;
     }
 
-    get bmp() {
-        return this.buffer.slice(20, this.imgSize);
+    get pOffset(){
+        if(this.version & 2){
+            return 4;
+        }
+        return 0;
     }
 
-    set bmp(hex) {
+    get imgData() {
+        if(this.version & 2){
+            return this.buffer.slice(20, this.imgSize);
+        }
+        return this.buffer.slice(16, this.imgSize);
+    }
+
+    set imgData(hex) {
         // TODO:替换Graphic的bmp数据
-        return this.buffer.slice(20, this.imgSize);
+        if(this.version & 2){
+            return this.buffer.slice(20, this.imgSize);
+        }
+        return this.buffer.slice(16, this.imgSize);
     }
 
-    hex2bmp(){
+    createBMP(callback){
         // TODO: 将本图像文件转为bmp
+        // 调用encode将this.buffer解密
+        // 获得像素数据, 生成bmp文件
+        // 回调图片地址
     }
 }
 
@@ -394,6 +428,11 @@ class Action {
             this.frames.push(frame);
         }
     }
+
+    createGIF(callback){
+        // TODO: 将本动作生成GIF
+
+    }
 }
 
 class Frame {
@@ -403,6 +442,7 @@ class Frame {
      */
     constructor(buffer) {
         this.buffer = buffer;
+        // this.img = null; //是否直接获取图片数据?
     }
 
     get imgNum() {
