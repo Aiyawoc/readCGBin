@@ -13,6 +13,7 @@
 
 
 const fs = require('fs');
+const Path = require('path');
 const loger = require('./modules/log');
 
 function log(str, type='main'){
@@ -74,12 +75,15 @@ function readCGInfoFile(pathList, callback) {
  */
 function getGraphicInfo(path, callback) {
     fs.readFile(path, (err, data) => {
+        let infoArr = {};
+        infoArr.length = 0;
+
         if (err) {
-            log('read err', err);
+            log(`读取GraphicInfo文件[${path}]失败, ${JSON.stringify(err)}`);
+            callback(infoArr);
             return;
         }
-
-        let infoArr = {};
+        
         let len = data.length / 40;
         for (let i = 0; i < len; i++) {
             let _buffer = data.slice(i * 40, i * 40 + 40);
@@ -275,11 +279,13 @@ function getAnimeInfo(path, callback) {
         }
 
         let infoArr = [];
-        let len = data.length / 12;
-        // log(len);
-        for (let i = 0; i < len; i++) {
-            let _buffer = data.slice(i * 12, i * 12 + 12);
-            infoArr.push(new AnimeInfo(_buffer));
+        if(data.length){
+            let len = data.length / 12;
+        
+            for (let i = 0; i < len; i++) {
+                let _buffer = data.slice(i * 12, i * 12 + 12);
+                infoArr.push(new AnimeInfo(_buffer));
+            }
         }
 
         callback(infoArr);
@@ -402,8 +408,13 @@ function getNameSpace(path) {
  */
 function getGInfoLastNum(path, callback) {
     getGraphicInfo(path, resArr => {
-        let lastInfoData = resArr.lastNode;
-        callback(lastInfoData.imgNum);
+        if(resArr.length){
+            let lastInfoData = resArr.lastNode;
+            callback(lastInfoData.imgNum);
+        }else{
+            // 如果目标是空文件, 返回0
+            callback(0);
+        }
     });
 }
 
@@ -635,6 +646,7 @@ function addAnimeById(animeId, tarPath, callback) {
     let tarAPath = tarPath.aPath;
     let tarGInfoPath = tarPath.gInfoPath;
     let tarGPath = tarPath.gPath;
+
     let imgNumDictionary = {}; //图片编号字典, 用于记录图片的新编号, key:原编号, value:新编号
 
     let aInfoFileArr = [];
@@ -672,11 +684,14 @@ function addAnimeById(animeId, tarPath, callback) {
         gInfoFileArr = dataList[2];
         gFileArr = dataList[3];
 
-        // log({ aInfoFileArr, aFileArr, gInfoFileArr, gFileArr });
-        // 获取tarGInfo文件中最后一条数据的编号,
+        // 获取tarGInfo文件中最后一条数据的编号
         let pGetLastNum = new Promise((resolve, reject) => {
             getGInfoLastNum(tarGInfoPath, lastNum => {
-                resolve(lastNum + 1);
+                if(lastNum){
+                    resolve(lastNum + 1);
+                }else{
+                    resolve(0);
+                }
             });
         });
 
@@ -689,15 +704,13 @@ function addAnimeById(animeId, tarPath, callback) {
                     return;
                 }
 
-                resolve(data);
+                resolve(data.length);
             });
         });
 
-
         Promise.all([pGetLastNum, pGetGHex]).then(dataList => {
             let startNum = dataList[0];
-            let tarGHEX = dataList[1];
-            let startAddr = tarGHEX.length;
+            let startAddr = dataList[1];
 
             // 批量读取gInfo文件, g文件, 修改gInfo文件的起始编号, addr
             addGraphicListToFile(imgNumDictionary, gInfoFileArr, gFileArr, startNum, startAddr, tarGPath, tarGInfoPath, ()=>{
@@ -706,8 +719,12 @@ function addAnimeById(animeId, tarPath, callback) {
                 // 读取目标tarAInfoPath文件, 获取下一个动画编号
                 let pGetTarAInfo = new Promise((resolve, reject)=>{
                     getAnimeInfo(tarAInfoPath, aInfoArr=>{
-                        let last = aInfoArr[aInfoArr.length - 1];
-                        resolve(last.animeId+1);
+                        if(aInfoArr.length){
+                            let last = aInfoArr[aInfoArr.length - 1];
+                            resolve(last.animeId+1);
+                        }else{
+                            resolve(0);
+                        }
                     });
                 });
 
@@ -741,6 +758,65 @@ function addAnimeById(animeId, tarPath, callback) {
                 
             });
         });
+    });
+}
+
+
+/**
+ * 检查目标文件是否存在, 如果不存在, 则创建, 并返回相应需要的值
+ * @param {Object} tarPath {tarAInfoPath, tarAPath, tarGInfoPath, tarGPath}
+ * @param {Function} callback 回调函数
+ */
+function checkTarPath(tarPath, callback){
+    let {aInfoPath, aPath, gInfoPath, gPath} = tarPath;
+    let dirName = Path.dirname(aInfoPath);
+    let aInfoName = Path.basename(aInfoPath);
+    let aName = Path.basename(aPath);
+    let gInfoName = Path.basename(gInfoPath);
+    let gName = Path.basename(gPath);
+
+    fileList = fs.readdirSync(dirName);
+
+    let emptyBuf = Buffer.alloc(0);
+    let pArr = [];
+    if(!fileList.includes(aInfoName)){
+        log(`[${aInfoName}]文件不存在, 创建空文件`);
+        let p = new Promise((resolve, reject)=>{
+            fs.writeFileSync(aInfoPath, emptyBuf);
+            resolve();
+        });
+        pArr.push(p);
+    }
+    
+    if(!fileList.includes(aName)){
+        log(`[${aName}]文件不存在, 创建空文件`);
+        let p = new Promise((resolve, reject)=>{
+            fs.writeFileSync(aPath, emptyBuf);
+            resolve();
+        });
+        pArr.push(p);
+    }
+
+    if(!fileList.includes(gInfoName)){
+        log(`[${gInfoName}]文件不存在, 创建空文件`);
+        let p = new Promise((resolve, reject)=>{
+            fs.writeFileSync(gInfoPath, emptyBuf);
+            resolve();
+        });
+        pArr.push(p);
+    }
+
+    if(!fileList.includes(gName)){
+        log(`[${gName}]文件不存在, 创建空文件`);
+        let p = new Promise((resolve, reject)=>{
+            fs.writeFileSync(gPath, emptyBuf);
+            resolve();
+        });
+        pArr.push(p);
+    }
+
+    Promise.all(pArr).then(()=>{
+        callback(tarPath);
     });
 }
 
@@ -789,4 +865,17 @@ const aPathEX = './bin/Anime_Joy_EX_70.bin';
 //     gPath: gPath
 // }, () => {
 //     log('==== 写入任务完成 ====');
+// });
+
+
+// 写入到空文件
+// checkTarPath({
+//     aInfoPath: './bin/animeInfo.bin',
+//     aPath: './bin/anime.bin',
+//     gInfoPath: './bin/graphicInfo.bin',
+//     gPath: './bin/graphic.bin'
+// }, checkedPath=>{
+//     addAnimeById(120099, checkedPath, () => {
+//         log('==== 写入任务完成 ====');
+//     });
 // });
