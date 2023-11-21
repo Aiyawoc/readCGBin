@@ -137,6 +137,14 @@ class GraphicInfo {
         return this.buffer.slice(30, 31).readIntLE(0, 1);
     }
 
+    get unKnow(){
+        return this.buffer.slice(31, 36);
+    }
+
+    set unKnow(num){
+        return this.buffer.slice(31, 36);
+    }
+
     get mapId() {
         return this.buffer.slice(36, 40).readIntLE(0, 4);
     }
