@@ -22,10 +22,11 @@ class GraphicInfo {
     /**
      * 创建图片信息对象
      * @param {Buffer} buffer 十六进制图片信息数据
+     * @param {Number} idx 该段数据在文件中的编号, 用于获取本条数据在文件中的地址selfAddr
      */
-    constructor(buffer, isTF = false) {
+    constructor(buffer, idx=0) {
         this.buffer = buffer;
-        this.isTF = isTF;
+        this.selfAddr = idx*40;
         // 0-3字节[LONG]反转为编号
         // 4-7字节[DWORD]指明圖片在數據文件中的起始位置
         // 8-11字节[DWORD]圖片數據塊的大小
@@ -160,9 +161,8 @@ class Graphic {
      * 创建图片数据对象
      * @param {Buffer} buffer 十六进制图片数据
      */
-    constructor(buffer, isTF=false) {
+    constructor(buffer) {
         this.buffer = buffer;
-        this.isTF = isTF;
         // 0-1字节固定为RD
         // 2字节为版本, 偶數表示未壓縮，按位圖存放；奇數則表示壓縮過
         // 3字节未知
@@ -289,9 +289,11 @@ class AnimeInfo {
     /**
      * 创建动画信息对象
      * @param {Buffer} buffer 十六进制动画信息数据
+     * @param {Number} idx 该段数据在文件中的编号, 用于获取本条数据在文件中的地址selfAddr
      */
-    constructor(buffer) {
+    constructor(buffer, idx) {
         this.buffer = buffer;
+        this.selfAddr = idx*12;
         // 0-3字节[LONG]为动画编号
         // 4-7字节[DWORD]动画数据地址
         // 8-9字节[DWORD]动画数量
