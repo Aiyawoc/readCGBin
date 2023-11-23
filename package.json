@@ -6,7 +6,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "Aiyawoc",
+  "author": "",
   "license": "ISC",
   "dependencies": {
     "log4js": "^6.9.1"

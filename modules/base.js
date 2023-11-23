@@ -229,7 +229,6 @@ class Graphic {
     }
 
     insertpalSize(num=768){
-        // TODO: 插入调色板需在16-20位插入调色板长度, 且在图片数据结尾插入调色板, 同时, 需更新gInfo文件的size
         if(this.version & 2){
             return this.buffer.slice(16, 20).readIntLE(0, 4);
         }
