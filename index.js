@@ -1,11 +1,5 @@
 /**
- * cg图档工具,
- * 实现传入一个动画编号数组，将其中每个编号对应的g，ginfo,a,ainfo文件拆分到output文件中
- * 注意动画文件有两种拆分方式
- * 实现删除指定编号的动画图档
- * 实现合并动画图档
- * 
- * 
+ * cg图档工具
  * 
  */
 
@@ -87,7 +81,7 @@ function getGraphicInfo(path, callback) {
         let len = data.length / 40;
         for (let i = 0; i < len; i++) {
             let _buffer = data.slice(i * 40, i * 40 + 40);
-            let gInfo = new GraphicInfo(_buffer);
+            let gInfo = new GraphicInfo(_buffer, i);
             infoArr[gInfo.imgNum] = gInfo;
             infoArr.lastNode = gInfo;
         }
@@ -98,8 +92,16 @@ function getGraphicInfo(path, callback) {
 }
 
 
-function getGraphicDataList(path, gList, nameSpace, passHave = true, callback) {
-    let _info = gList.shift();
+/**
+ * 递归方式批量将grahpic, graphicInfo逐条拆分到目录文件
+ * @param {String} gPath graphic文件路径
+ * @param {Array} gInfoList 要拆分的graphicInfo对象数组
+ * @param {String} nameSpace 路径目录名
+ * @param {Boolean} passHave 是否跳过已存在, 默认跳过
+ * @param {Function} callback 回调函数, 返回GDataList(全局变量)
+ */
+function getGraphicDataList(gPath, gInfoList, nameSpace, passHave = true, callback) {
+    let _info = gInfoList.shift();
     if (_info) {
         if (passHave) {
             let infoFilePath = `./output/${nameSpace}/graphicInfo`;
@@ -110,9 +112,9 @@ function getGraphicDataList(path, gList, nameSpace, passHave = true, callback) {
             fs.readdir(dataFilePath, (err, dirList) => {
                 if (dirList.includes(dataFileName)) {
                     // log(`[${_info.imgNum}]文件已存在, 跳过`);
-                    getGraphicDataList(path, gList, nameSpace, passHave, callback);
+                    getGraphicDataList(gPath, gInfoList, nameSpace, passHave, callback);
                 } else {
-                    getGraphicData(path, _info, graphicData => {
+                    getGraphicData(gPath, _info, graphicData => {
                         if (graphicData) {
                             log(`读取[${_info.imgNum}]完成, 开始写入文件`);
                             let p0 = new Promise((resolve, reject) => {
@@ -130,17 +132,17 @@ function getGraphicDataList(path, gList, nameSpace, passHave = true, callback) {
                             });
 
                             Promise.all([p0, p1]).then(() => {
-                                getGraphicDataList(path, gList, nameSpace, passHave, callback);
+                                getGraphicDataList(gPath, gInfoList, nameSpace, passHave, callback);
                             });
                         } else {
                             log(`读取[${_info.imgNum}]失败, 继续下一条`);
-                            getGraphicDataList(path, gList, nameSpace, passHave, callback);
+                            getGraphicDataList(gPath, gInfoList, nameSpace, passHave, callback);
                         }
                     });
                 }
             });
         } else {
-            getGraphicData(path, _info, graphicData => {
+            getGraphicData(gPath, _info, graphicData => {
                 if (graphicData) {
                     log(`读取[${_info.imgNum}]完成, 开始写入文件`);
                     let p0 = new Promise((resolve, reject) => {
@@ -158,11 +160,11 @@ function getGraphicDataList(path, gList, nameSpace, passHave = true, callback) {
                     });
 
                     Promise.all([p0, p1]).then(() => {
-                        getGraphicDataList(path, gList, nameSpace, passHave, callback);
+                        getGraphicDataList(gPath, gInfoList, nameSpace, passHave, callback);
                     });
                 } else {
                     log(`读取[${_info.imgNum}]失败, 继续下一条`);
-                    getGraphicDataList(path, gList, nameSpace, passHave, callback);
+                    getGraphicDataList(gPath, gInfoList, nameSpace, passHave, callback);
                 }
             });
         }
@@ -172,6 +174,12 @@ function getGraphicDataList(path, gList, nameSpace, passHave = true, callback) {
 }
 
 
+/**
+ * 获取图片数据
+ * @param {String} path graphic文件路径
+ * @param {GraphicInfo} info 要提取的图片信息 
+ * @param {Function} callback 回调函数, 返回目标Graphic对象
+ */
 function getGraphicData(path, info, callback) {
     fs.readFile(path, (err, data) => {
         if (err) {
@@ -204,10 +212,10 @@ function getGraphicData(path, info, callback) {
 
 
 /**
- * 
- * @param {*} info 
- * @param {*} nameSpace 
- * @param {*} callback 
+ * 保存图片信息
+ * @param {GraphicInfo} info 图片信息数据 
+ * @param {String} nameSpace 路径名称
+ * @param {Function} callback 回调函数
  */
 function saveGraphicInfo(info, nameSpace, callback) {
     let fileName = `GraphicInfo_${nameSpace}_${info.imgNum}.bin`;
@@ -284,7 +292,7 @@ function getAnimeInfo(path, callback) {
         
             for (let i = 0; i < len; i++) {
                 let _buffer = data.slice(i * 12, i * 12 + 12);
-                infoArr.push(new AnimeInfo(_buffer));
+                infoArr.push(new AnimeInfo(_buffer, i));
             }
         }
 
@@ -309,7 +317,9 @@ function getAnimeData(path, info, endAddr, callback) {
 
         let addr = info.addr;
         endAddr = endAddr || data.length;
+        // console.log({addr,endAddr});
         let animeDataHex = data.slice(addr, endAddr);
+        // console.log(animeDataHex.length);
         let anime = new Anime(animeDataHex);
         callback(anime);
     });
@@ -441,7 +451,7 @@ function addGraphicListToFile(imgNumDictionary, gInfoPathArr, gPathArr, startNum
     let gInfoPath = gInfoPathArr.shift();
     let gPath = gPathArr.shift();
     if(gInfoPath && gPath){
-        let _gInfo = new GraphicInfo(fs.readFileSync(gInfoPath));
+        let _gInfo = new GraphicInfo(fs.readFileSync(gInfoPath), 0);
         let _g = new Graphic(fs.readFileSync(gPath));
 
         //NOTE: 有些图片资源imgSize值与buffer.length不同, 且多为0x30, 原因不明, 将其改为数据大小
@@ -739,7 +749,7 @@ function addAnimeById(animeId, tarPath, callback) {
                     let startNum = aDataList[0];
                     let startAddr = aDataList[1];
 
-                    let aInfo = new AnimeInfo(fs.readFileSync(aInfoFileArr[0]));
+                    let aInfo = new AnimeInfo(fs.readFileSync(aInfoFileArr[0]), 0);
                     aInfo.animeId = startNum;
                     aInfo.addr = startAddr;
 
@@ -820,6 +830,188 @@ function checkTarPath(tarPath, callback){
     });
 }
 
+/**
+ * 删除目标文件中指定的动画数据
+ * @param {Number} animeId 要删除的动画ID
+ * @param {Object} tarPath 目标文件路径 {aInfoPath, aPath, gInfoPath, gPath}
+ * @param {Boolean} delGraphic 是否删除对应的图片数据
+ * @param {Function} callback 回调函数
+ */
+function removeAnimeById(animeId, tarPath, delGraphic=true, callback){
+    // 删除流程
+    // 1. 读取ainfo, 获取目标动画在a文件中的addr
+    let {aInfoPath, aPath} = tarPath;
+    getAnimeInfo(aInfoPath, aInfoArr=>{
+        let curIdx = 0, curAInfo;
+        for(let i=0;i<aInfoArr.length;i++){
+            let _aInfo = aInfoArr[i];
+            if(_aInfo.animeId == animeId){
+                curIdx = i;
+                curAInfo = _aInfo;
+                break;
+            }
+        }
+        // BUG: 现象目前删除非最后一位动画编号时, 下一位动画数据错乱, 最后一位动画报错, 检查gInfo文件的addr
+
+        // 目标动画在a文件中的addr
+        let startAddr = curAInfo.addr;
+        
+        // 2. 获取目标动画的下一条动画在a文件中的addr, 作为截止addr, 如果该动画是最后一条, 则截止addr设为null, 即为文件尾
+        let endAddr = null;
+        if(curIdx+1 < aInfoArr.length){
+            endAddr = aInfoArr[curIdx+1].addr;
+        }
+        console.log({startAddr, endAddr});
+        
+        // 3. 读取a文件, 获取目标动画数据中的图片信息
+        getAnimeData(aPath, curAInfo, endAddr, tarAData=>{
+            let imgList = tarAData.imgList;
+            // console.log(tarAData.buffer.length==endAddr-curAInfo.addr);
+            let tarADataLen = tarAData.buffer.length;
+            // 4. 删除a文件中的目标动画
+            let aFileHex = fs.readFileSync(aPath);
+            // let secondHarfHex_afile = aFileHex.slice(endAddr, aFileHex.length);
+            // console.log(secondHarfHex_afile.length, secondHarfHex_afile);
+            // let secondHarfHex_afile_body = secondHarfHex_afile.slice(20, secondHarfHex_afile.length);
+            // console.log(secondHarfHex_afile_body.length,secondHarfHex_afile_body);
+
+            let writeBuffer = bufferSplice(aFileHex, startAddr, tarADataLen);
+            // console.log(writeBuffer.length + tarAData.buffer.length == aFileHex.length);
+
+            let aPathFD = fs.openSync(aPath, 'w+');
+            fs.writeFileSync(aPathFD, writeBuffer);
+            fs.closeSync(aPathFD);
+            log(`从[${aPath}]中删除[${animeId}]动画完成`);
+
+            
+            // 5. 删除ainfo文件中的目标动画信息, 并更新之后所有的动画信息的addr
+            let aInfoHex = fs.readFileSync(aInfoPath);
+            // console.log({curAInfo}, curAInfo.addr,aInfoHex.length, aInfoHex.length/12);
+            let secondHarfHex = aInfoHex.slice(curAInfo.selfAddr+12, aInfoHex.length);
+            let len = secondHarfHex.length / 12;
+            let allLen = aInfoHex.length / 12;
+            // console.log({len});
+            
+            for(let i=0; i<len; i++){
+                let _hex = secondHarfHex.slice(i*12, (i+1)*12);
+                let _aInfo = new AnimeInfo(_hex, i+(allLen-len-1));
+                console.log(`原始地址: ${curAInfo.addr}`);
+                console.log(tarAData.buffer.length);
+                console.log({i, _hex}, _aInfo.addr, tarADataLen);
+                _aInfo.addr = _aInfo.addr - tarADataLen;
+                console.log({_aInfo});
+            }
+
+            let writeAinfoBuffer = bufferSplice(aInfoHex, 12*curIdx, 12);
+            let aInfoPathFD = fs.openSync(aInfoPath, 'w+');
+            fs.writeFileSync(aInfoPathFD, writeAinfoBuffer);
+            fs.closeSync(aInfoPathFD);
+            log(`从[${aInfoPath}]中删除[${animeId}]动画信息完成`);
+
+            // 6. 如果需要删除图片数据, 则调用removeGraphics, 删除图片数据
+            if(delGraphic){
+                removeGraphics(imgList, tarPath, res=>{
+                    callback();
+                });
+            }else{
+                callback();
+            }
+        });
+    });
+}
+
+
+/**
+ * 删除目标文件中指定的图片数据
+ * @param {Array} imgList 要删除的图片编号数组
+ * @param {Object} tarPath 目标文件路径 {aInfoPath, aPath, gInfoPath, gPath}
+ * @param {Function} callback 回调函数
+ */
+function removeGraphics(imgList, tarPath, callback){
+    let {gInfoPath, gPath} = tarPath;
+
+    // 删除流程
+    // 1. 读取ginfo文件, 获取图片列表在info文件中的起止addr
+    // 2. 获取图片数据在g文件中的起止addr, 及总size
+    let infoStartAddr = 0, infoEndAddr = 0;
+    let infoDelSize = 0;
+    let gStartAddr = 0, gEndAddr = 0;
+    let gDelSize = 0;
+
+    getGraphicInfo(gInfoPath, gInfoArr=>{
+        let startGInfo = gInfoArr[imgList[0]];
+        let endGInfo = gInfoArr[imgList[imgList.length-1]];
+
+        infoStartAddr = startGInfo.selfAddr;
+        infoEndAddr = endGInfo.selfAddr + endGInfo.buffer.length;
+        infoDelSize = imgList.length*40;
+
+        gStartAddr = startGInfo.addr;
+        gEndAddr = endGInfo.addr + endGInfo.imgSize;
+        gDelSize = gEndAddr - gStartAddr;
+        
+        // 3. 批量更新被删除图片后面的数据中的addr
+        let gInfoFileHex = fs.readFileSync(gInfoPath);
+        let secondHarfHex = gInfoFileHex.slice(infoEndAddr, gInfoFileHex.length);
+        let len = secondHarfHex.length / 40;
+        for (let i = 0; i < len; i++) {
+            let _buffer = secondHarfHex.slice(i * 40, i * 40 + 40);
+            let _gInfo = new GraphicInfo(_buffer, i);
+            _gInfo.addr = _gInfo.addr - gDelSize;
+        }
+
+        // 4. 删除待删除的ginfo数据
+        let gInfoWriteHex = bufferSplice(gInfoFileHex, infoStartAddr, infoDelSize);
+        let gInfoFD = fs.openSync(gInfoPath, 'w+');
+        fs.writeFileSync(gInfoFD, gInfoWriteHex);
+        fs.closeSync(gInfoFD);
+        log(`从[${gInfoPath}]中删除图片信息完成`);
+
+        // 5. 删除待删除的g数据
+        let gFileHex = fs.readFileSync(gPath);
+        let gWriteHex = bufferSplice(gFileHex, gStartAddr, gDelSize);
+        let gFD = fs.openSync(gPath, 'w+');
+        fs.writeFileSync(gFD, gWriteHex);
+        fs.closeSync(gFD);
+        log(`从[${gPath}]中删除图片数据完成`);
+
+        callback();
+    });
+}
+
+
+/**
+ * buffer分割方法, 删除从start起指定长度的数据, 包含start
+ * @param {Number} start 起始位置
+ * @param {Number} size 删除的位数
+ * @returns {Buffer} 删除后新的buffer
+ */
+function bufferSplice(buffer, start, size){
+    start = start || 0;
+    end = start + size;
+    let part0 = Buffer.alloc(start);
+    let part2 = Buffer.alloc(buffer.length - start - size);
+    for(let i=0;i<buffer.length;i++){
+        if(i<start){
+            part0[i] = buffer[i];
+        }
+        
+        if(i>=end){
+            part2[i-end] = buffer[i];
+        }
+    }
+
+    return Buffer.concat([part0, part2]);
+}
+
+
+// let start = 4, size = 4;
+// let tBuf = Buffer.from([0,1,2,3,4,5,6,7,8,9,10]);
+// console.log(tBuf);
+// tBuf = bufferSplice(tBuf, start, size);
+// console.log(tBuf);
+
+
 
 
 // 以下为测试数据
@@ -848,6 +1040,32 @@ const aInfoPathEX = './bin/AnimeInfo_Joy_EX_70.bin';
 const aPathEX = './bin/Anime_Joy_EX_70.bin';
 
 
+// 从目标文件中删除id为120201的动画数据, 并删除图片数据
+fs.copyFileSync('D:/CrossGate/bin/Puk3/Anime_PUK3_2.bin', './bin/Anime_PUK3_2.bin');
+fs.copyFileSync('D:/CrossGate/bin/Puk3/AnimeInfo_PUK3_2.bin', './bin/AnimeInfo_PUK3_2.bin');
+fs.copyFileSync('D:/CrossGate/bin/Puk3/Graphic_PUK3_1.bin', './bin/Graphic_PUK3_1.bin');
+fs.copyFileSync('D:/CrossGate/bin/Puk3/GraphicInfo_PUK3_1.bin', './bin/GraphicInfo_PUK3_1.bin');
+
+removeAnimeById(120171, {aInfoPath, aPath, gInfoPath, gPath}, true, res => {
+    log(`==== 删除[120171] 小火龙 任务完成 ====`);
+
+    // let hex = fs.readFileSync('./bin/AnimeInfo_PUK3_2.bin');
+    // console.log(hex.length, hex);
+    getAnimeInfo('./bin/AnimeInfo_PUK3_2.bin', infoArr=>{
+        console.log(infoArr[infoArr.length-1]);
+    });
+
+    // TODO: 读取4个文件, 分别检查,info文件是否为40/12整除
+    // removeAnimeById(120200, {aInfoPath, aPath, gInfoPath, gPath}, true, res => {
+    //     log(`==== 删除[120200]任务完成 ====`);
+    // });
+
+});
+
+
+
+
+
 // 从目标文件中拆分id为120099的数据
 // getAnimeById({
 //     animeInfoPath: aInfoPathKY,
@@ -857,6 +1075,7 @@ const aPathEX = './bin/Anime_Joy_EX_70.bin';
 // }, 120099, data => {
 //     log('==== 读取任务完成 ====');
 // });
+
 
 // 将120099的数据写入目标文件中
 // 108299
@@ -881,3 +1100,33 @@ const aPathEX = './bin/Anime_Joy_EX_70.bin';
 //         log('==== 写入任务完成 ====');
 //     });
 // });
+
+
+/* 
+NOTE: 闹闹关于图档变色的解释
+其实图档变色很简单，懂得图档结构后，就可以自己制作客户端图档了。
+说的简单点，魔力图档就是，图片转换成8位BMP格式，宽度是4的倍数，高度不限，其内容为数据+调色板，
+通常调色板中黑色（RGB 0 0 0）为底色，作为游戏中透明用，
+所以魔力图档就是，一个数据+一个调色板，一个数据+一个调色板，
+魔力宝贝1.0的时候，为了节约硬盘容量，想出了一个方法，多个数据用同一个调色板，这种方法称为全局，
+每个数据内容都是用的同一个调色板，这种方法优点，省容量，颜色有损失，
+
+随着时代迁移，4.0时期，需要更鲜艳的图档质量，就慢慢还原了，一个数据+一个调色板，这种称之为局部。
+也许随着日后CG的更新，会用上PNG或者其他高质量图片格式，但是占用容量太大了。现在一个魔力宝贝客户端基本上7-8G，可谓很大了。
+
+图档变色方法有2种：一种为简单的，一种为复杂的。
+先说说简单的，简单就是全局转换为局部，数据内容不变，只是变调色板。
+就好比露比头发是绿色的，那就拿它调色板中的绿色色块，改成黑色或者其他颜色，再将数据内容和调色板重新组合下，变成局部图档。
+4.0图档的修复都是如此，官方的4.0图档数据内容都是没有调色板的，调色板都是单独一个放的，所以用查看器查看都是花屏，就一个是正常颜色的图档，
+所以通过小男生工具提取组合，可以修复图档，此工具原理也是如此，将每个数据内容+单独的调色板，一一重新组合，就是我们所看到的修复图档。
+如果想要将1.0图档变色，其实将一个图档动画提取，在重新打入一个单独含有调色板的图档，在进行重新分解组合。
+4.0图档也是如此，将数据提取，将单独的调色板提取，改下色，重新打入，再重新分解组合下就OK了。此方法流程简单，见效快，缺点颜色有缺失。
+
+由此猜测, 小男生提取工具提取到不自带调色板的图档后, 找到其使用的全局调色板, 将其合并到图档文件中, 并打入带单独调色板的文件中
+*/
+
+// NOTE: 头饰骑宠文件解析  http://bbs.mocwww.com/viewthread.php?tid=31111&extra=&page=1
+
+// NOTE: 用gp的图档工具拆台服的EX图档出来, 打入puk3会花屏(调色板不正常)
+
+// NOTE: 猜测:拆出来不自带调色板且版本号显示是压缩的, 需要打入官方调色板
