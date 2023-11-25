@@ -17,6 +17,12 @@ Buffer.prototype.insert = function(addr, hex){
     Buffer.concat([part0, hex, part1]);
 }
 
+class G {
+    constructor(infoBuffer, dataBuffer){
+        this.graphicInfo = new GraphicInfo(infoBuffer);
+        this.graphic = new Graphic(dataBuffer);
+    }
+}
 
 class GraphicInfo {
     /**
@@ -282,6 +288,13 @@ class Graphic {
         // 调用encode将this.buffer解密
         // 获得像素数据, 生成bmp文件
         // 回调图片地址
+    }
+}
+
+class A {
+    constructor(infoBuffer, dataBuffer){
+        this.animeInfo = new AnimeInfo(infoBuffer);
+        this.anime = new Anime(dataBuffer);
     }
 }
 
