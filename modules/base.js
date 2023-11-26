@@ -478,4 +478,85 @@ class Frame {
     }
 }
 
-module.exports = { GraphicInfo, Graphic, AnimeInfo, Anime, Action, Frame }
+class DecodeBuffer{
+    constructor(width, height){
+        // this.buffer = Buffer.alloc(width * height);
+        this.buffer = Buffer.alloc(0);
+    }
+
+    write(hex){
+        this.buffer = Buffer.concat([this.buffer, hex]);
+    }
+
+    get length(){
+        return this.buffer.length;
+    }
+}
+
+// 游戏指定的调色板0-15 BGR
+const g_c0_15 = [
+    [0x00, 0x00, 0x00],
+    [0x80, 0x00, 0x00],
+    [0x00, 0x80, 0x00],
+    [0x80, 0x80, 0x00],
+    [0x00, 0x00, 0x80],
+    [0x80, 0x00, 0x80],
+    [0x00, 0x80, 0x80],
+    [0xc0, 0xc0, 0xc0],
+    [0xc0, 0xdc, 0xc0],
+    [0xa6, 0xca, 0xf0],
+    [0xde, 0x00, 0x00],
+    [0xff, 0x5f, 0x00],
+    [0xff, 0xff, 0xa0],
+    [0x00, 0x5f, 0xd2],
+    [0x50, 0xd2, 0xff],
+    [0x28, 0xe1, 0x28]
+];
+
+// 游戏指定的调色板240-255 BGR
+const g_c240_255 = [
+    [0xf5, 0xc3, 0x96],
+    [0x1e, 0xa0, 0x5f],
+    [0xc3, 0x7d, 0x46],
+    [0x9b, 0x55, 0x1e],
+    [0x46, 0x41, 0x37],
+    [0x28, 0x23, 0x1e],
+    [0xff, 0xfb, 0xf0],
+    [0x3a, 0x6e, 0x5a],
+    [0x80, 0x80, 0x80],
+    [0xff, 0x00, 0x00],
+    [0x00, 0xff, 0x00],
+    [0xff, 0xff, 0x00],
+    [0x00, 0x00, 0xff],
+    [0xff, 0x80, 0xff],
+    [0x00, 0xff, 0xff],
+    [0xff, 0xff, 0xff]
+];
+
+class Cgp{
+    /**
+     * 调色板类
+     * @param {Buffer} buffer 调色板数据buffer
+     */
+    constructor(buffer){
+        this.buffer = buffer;
+        this.rgbList = [];
+        let len = buffer.length/3;
+        for(let i=0; i<len; i++){
+            let rgb = [this.buffer[i*3], this.buffer[i*3+1], this.buffer[i*3+2]];
+            this.rgbList.push(rgb);
+        }
+
+        if(this.rgbList.length == 236){
+            // 官方调色板, 需增加前16色并从240开始覆盖后16色
+            this.rgbList = [...g_c0_15, ...this.rgbList];
+            this.rgbList.length = 240;
+            for(let i=0;i<g_c240_255.length;i++){
+                this.rgbList.push(g_c240_255[i]);
+            }
+        }
+
+    }
+}
+
+module.exports = { G, GraphicInfo, Graphic, A, AnimeInfo, Anime, Action, Frame, DecodeBuffer, Cgp }
