@@ -6,6 +6,8 @@
 const fs = require('fs');
 const Path = require('path');
 const loger = require('./modules/log');
+const {decode} = require('./modules/binDecode');
+let {CGPMAP} = require('./modules/config');
 
 function log(str, type='main'){
     str = JSON.stringify(str);
@@ -1002,6 +1004,13 @@ function bufferSplice(buffer, start, size){
 }
 
 
+
+
+
+
+
+// 以下为测试数据
+
 // let start = 4, size = 4;
 // let tBuf = Buffer.from([0,1,2,3,4,5,6,7,8,9,10]);
 // console.log(tBuf);
@@ -1009,9 +1018,6 @@ function bufferSplice(buffer, start, size){
 // console.log(tBuf);
 
 
-
-
-// 以下为测试数据
 
 const gInfoPath = './bin/GraphicInfo_PUK3_1.bin';
 const gPath = './bin/Graphic_PUK3_1.bin';
@@ -1040,6 +1046,54 @@ const tfGInfoPath = './bin/TF/bin/Puk3/GraphicInfo_PUK3_2.bin';
 const tfGPath = './bin/TF/bin/Puk3/Graphic_PUK3_2.bin';
 const tfAInfoPath = './bin/TF/bin/Puk3/AnimeInfo_PUK3_2.bin';
 const tfAPath = './bin/TF/bin/Puk3/Anime_PUK3_2.bin';
+
+
+// graphic文件解密
+// const tarGPath = './output/108299/graphic/Graphic_108299_230505.bin';
+// let graphic = new Graphic(fs.readFileSync(tarGPath));
+// console.log({graphic}, graphic.imgWidth, graphic.imgHeight);
+// let decodeGraphic = decode(graphic);
+// console.log(decodeGraphic);
+// let fd = fs.openSync('./tmp.bin', 'w+');
+// fs.writeFileSync(fd, decodeGraphic.buffer);
+// fs.closeSync(fd);
+
+
+
+const tarGPath = './output/108299/graphic/Graphic_108299_230960.bin';
+let graphic = new Graphic(fs.readFileSync(tarGPath));
+console.log({graphic}, graphic.imgWidth, graphic.imgHeight);
+graphic.createBMP(null, ()=>{
+
+});
+// let decodeGraphic = decode(graphic);
+// console.log(decodeGraphic);
+// console.log(CGPMAP.get('palet_00.cgp'));
+// let tmpHex = fs.readFileSync('./tmp.bin');
+// console.log(tmpHex);
+
+// const bmpData = {
+//     data: decodeGraphic,
+//     width: graphic.imgWidth,
+//     height: graphic.imgHeight
+// };
+
+// let rowData = BMP.encode(bmpData);
+// fs.writeFileSync('./tmp.bmp', rowData.data);
+// const bmpData = new BMP(graphic.imgWidth, graphic.imgHeight);
+// for(let y=0;y<bmpData.height;y++){
+//     for(let x=0;x<bmpData.width;x++){
+//         let offset = graphic.imgWidth * y + x;
+//         console.log(decodeGraphic[offset]);
+        
+//     }
+// }
+
+// 读取bmp
+// var bmpBuffer = fs.readFileSync('./testImg.bmp');
+// var bmpData = BMP.decode(bmpBuffer);
+// console.log(bmpData);
+
 
 
 // 从目标文件中删除id为120201的动画数据, 并删除图片数据
@@ -1079,15 +1133,17 @@ const tfAPath = './bin/TF/bin/Puk3/Anime_PUK3_2.bin';
 // });
 
 
-// 从目标文件中拆分id为108215的数据
-getAnimeById({
-    animeInfoPath: tfAInfoPath,
-    animePath: tfAPath,
-    graphicInfoPath: tfGInfoPath,
-    graphicPath: tfGPath
-}, 108215, data => {
-    log('==== 读取任务完成 ====');
-});
+// // 从目标文件中拆分id为108215的数据
+// getAnimeById({
+//     animeInfoPath: tfAInfoPath,
+//     animePath: tfAPath,
+//     graphicInfoPath: tfGInfoPath,
+//     graphicPath: tfGPath
+// }, 108215, data => {
+//     log('==== 读取任务完成 ====');
+// });
+
+
 
 
 
@@ -1107,6 +1163,11 @@ getAnimeById({
 //     // 找到2张mapId等于动画编号的图片
 // });
 
+
+
+
+
+
 // let _path = './bin/108303_2/GraphicInfo_PUK2_2.bin';
 // getGraphicInfo(_path, (dataList)=>{
 //     let res = [];
@@ -1122,6 +1183,11 @@ getAnimeById({
 //     }
 //     // 找到2张mapId等于动画编号的图片
 // });
+
+
+
+
+
 
 // let _path = './bin/108303_3/GraphicInfo_108303_GP.bin';
 // getGraphicInfo(_path, (dataList)=>{
@@ -1160,6 +1226,10 @@ getAnimeById({
 // });
 
 
+
+
+
+
 // 将120099的数据写入目标文件中
 // 108299
 // addAnimeById(120099, {
@@ -1170,6 +1240,12 @@ getAnimeById({
 // }, () => {
 //     log('==== 写入任务完成 ====');
 // });
+
+
+
+
+
+
 
 
 // 检查目标文件是否存在, 若不存在, 则创建空文件, 并将120099的数据写入
@@ -1183,6 +1259,11 @@ getAnimeById({
 //         log('==== 写入任务完成 ====');
 //     });
 // });
+
+
+
+
+
 
 
 /* 
