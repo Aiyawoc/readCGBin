@@ -251,14 +251,15 @@ class Graphic {
 
     get palSize() {
         if (this.version & 2) {
-            return this.buffer.slice(16, 20);
+            return this.buffer.slice(16, 20).readIntLE(0, 4);
         }
         return 0;
     }
 
     set palSize(num) {
         if (this.version & 2) {
-            return this.buffer.slice(16, 20).writeIntLE(num, 0, 4);
+            this.buffer.slice(16, 20).writeIntLE(num, 0, 4);
+            return this.buffer.slice(16, 20).readIntLE(0, 4);
         }
         return 0;
     }
@@ -267,7 +268,9 @@ class Graphic {
         // 获取图片自带调色板, 调色板是解压后的数据
         if (this.version & 2) {
             let decodeBuffer = this.decode();
-            let cgp = new Cgp(decodeBuffer.slice(decodeBuffer.length-this.palSize, decodeBuffer.length));
+            let cgpHex = decodeBuffer.slice(decodeBuffer.length-this.palSize, decodeBuffer.length);
+            // console.log('cgpHex: ', cgpHex.length, cgpHex.length/3);
+            let cgp = new Cgp(cgpHex);
             return cgp;
         }
         return null;
@@ -402,6 +405,7 @@ class Graphic {
         // 参考链接: https://blog.csdn.net/u013066730/article/details/82625158
         // 调用encode将this.buffer解密
         let decodeBuffer = this.decode();
+        fs.writeFileSync('./decodeGraphic.bin', decodeBuffer);
 
         // 调色板数据(BGRA), 256*4位=1024位, 传入cgp>图片自带cgp>默认cgp
         cgp = cgp || this.cgp || CGPMAP.get('palet_00.cgp');
@@ -667,76 +671,136 @@ class DecodeBuffer {
 
 // 游戏指定的调色板0-15 BGRA
 const g_c0_15 = [
-    [0x00, 0x00, 0x00, 0x00],
-    [0x80, 0x00, 0x00, 0x00],
-    [0x00, 0x80, 0x00, 0x00],
-    [0x80, 0x80, 0x00, 0x00],
-    [0x00, 0x00, 0x80, 0x00],
-    [0x80, 0x00, 0x80, 0x00],
-    [0x00, 0x80, 0x80, 0x00],
-    [0xc0, 0xc0, 0xc0, 0x00],
-    [0xc0, 0xdc, 0xc0, 0x00],
-    [0xa6, 0xca, 0xf0, 0x00],
-    [0xde, 0x00, 0x00, 0x00],
-    [0xff, 0x5f, 0x00, 0x00],
-    [0xff, 0xff, 0xa0, 0x00],
-    [0x00, 0x5f, 0xd2, 0x00],
-    [0x50, 0xd2, 0xff, 0x00],
-    [0x28, 0xe1, 0x28, 0x00]
+    [0x00, 0x00, 0x00],
+    [0x80, 0x00, 0x00],
+    [0x00, 0x80, 0x00],
+    [0x80, 0x80, 0x00],
+    [0x00, 0x00, 0x80],
+    [0x80, 0x00, 0x80],
+    [0x00, 0x80, 0x80],
+    [0xc0, 0xc0, 0xc0],
+    [0xc0, 0xdc, 0xc0],
+    [0xa6, 0xca, 0xf0],
+    [0xde, 0x00, 0x00],
+    [0xff, 0x5f, 0x00],
+    [0xff, 0xff, 0xa0],
+    [0x00, 0x5f, 0xd2],
+    [0x50, 0xd2, 0xff],
+    [0x28, 0xe1, 0x28]
 ];
 
 // 游戏指定的调色板240-255 BGRA
 const g_c240_255 = [
-    [0xf5, 0xc3, 0x96, 0x00],
-    [0x1e, 0xa0, 0x5f, 0x00],
-    [0xc3, 0x7d, 0x46, 0x00],
-    [0x9b, 0x55, 0x1e, 0x00],
-    [0x46, 0x41, 0x37, 0x00],
-    [0x28, 0x23, 0x1e, 0x00],
-    [0xff, 0xfb, 0xf0, 0x00],
-    [0x3a, 0x6e, 0x5a, 0x00],
-    [0x80, 0x80, 0x80, 0x00],
-    [0xff, 0x00, 0x00, 0x00],
-    [0x00, 0xff, 0x00, 0x00],
-    [0xff, 0xff, 0x00, 0x00],
-    [0x00, 0x00, 0xff, 0x00],
-    [0xff, 0x80, 0xff, 0x00],
-    [0x00, 0xff, 0xff, 0x00],
-    [0xff, 0xff, 0xff, 0x00]
+    [0xf5, 0xc3, 0x96],
+    [0x1e, 0xa0, 0x5f],
+    [0xc3, 0x7d, 0x46],
+    [0x9b, 0x55, 0x1e],
+    [0x46, 0x41, 0x37],
+    [0x28, 0x23, 0x1e],
+    [0xff, 0xfb, 0xf0],
+    [0x3a, 0x6e, 0x5a],
+    [0x80, 0x80, 0x80],
+    [0xff, 0x00, 0x00],
+    [0x00, 0xff, 0x00],
+    [0xff, 0xff, 0x00],
+    [0x00, 0x00, 0xff],
+    [0xff, 0x80, 0xff],
+    [0x00, 0xff, 0xff],
+    [0xff, 0xff, 0xff]
 ];
 
 class Cgp {
     /**
      * 调色板类
      * @param {Buffer} buffer 调色板数据buffer
+     * @param {Boolean} isDefault 是否为官方调色板, 默认否
      */
-    constructor(buffer) {
+    constructor(buffer, isDefault = false) {
         this.buffer = buffer;
-        this.rgbList = [];
-        let len = buffer.length / 3;
+        this.isDefault = isDefault;
+        this.bgrBuffer = null;
+        this.bgraBuffer = null;
+    }
+
+    get bgr(){
+        let colorList = [];
+        let len = this.buffer.length / 3;
         for (let i = 0; i < len; i++) {
-            let rgb = [this.buffer[i * 3], this.buffer[i * 3 + 1], this.buffer[i * 3 + 2], 0];
-            this.rgbList.push(rgb);
+            let B = this.buffer[i * 3];
+            let G = this.buffer[i * 3 + 1];
+            let R = this.buffer[i * 3 + 2];
+            let A = 0;
+
+            this.colorList.push([B, G, R]);
         }
 
-        if (this.rgbList.length == 236) {
+        if (isDefault) {
             // 官方调色板, 需增加前16色并从240开始覆盖后16色
-            this.rgbList = [...g_c0_15, ...this.rgbList];
-            this.rgbList.length = 240;
+            this.colorList = [...g_c0_15, ...this.colorList];
+            this.colorList.length = 240;
             for (let i = 0; i < g_c240_255.length; i++) {
-                this.rgbList.push(g_c240_255[i]);
-            }
-
-            // 需更新buffer
-            this.buffer = Buffer.alloc(256 * 4);
-            for (let i = 0; i < this.rgbList.length; i++) {
-                let rgb = this.rgbList[i];
-                this.buffer[i * 3] = rgb[0];
-                this.buffer[i * 3 + 1] = rgb[1];
-                this.buffer[i * 3 + 2] = rgb[2];
-                this.buffer[i * 3 + 3] = 0;
+                this.colorList.push(g_c240_255[i]);
             }
         }
+
+        return colorList;
+
+        // // 需更新buffer
+        // this.buffer = Buffer.alloc(0);
+        // for (let i = 0; i < this.colorList.length; i++) {
+        //     let BGRA = Buffer.from(this.colorList[i]);
+        //     this.buffer = Buffer.concat([this.buffer, BGRA]);
+        // }
+    }
+
+    get bgrBuffer(){
+        let colorList = this.bgr;
+        let buffer = Buffer.alloc(0);
+        for(let i=0;i<colorList.length;i++){
+            let BGR = Buffer.from(colorList[i]);
+            buffer = Buffer.concat([buffer, BGR]);
+        }
+        return buffer;
+    }
+
+    get bgra(){
+        let colorList = [];
+
+        if(this.isDefault){
+            for(let i=0;i<g_c0_15.length;i++){
+                colorList.push([...g_c0_15[i], 0]);
+            }
+        }
+
+        let len = this.buffer.length / 3;
+        for (let i = 0; i < len; i++) {
+            let B = this.buffer[i * 3];
+            let G = this.buffer[i * 3 + 1];
+            let R = this.buffer[i * 3 + 2];
+            let A = 0;
+
+            colorList.push([B, G, R, A]);
+        }
+
+        if (isDefault) {
+            // 官方调色板, 从240开始覆盖后16色
+            colorList.length = 240;
+            for (let i = 0; i < g_c240_255.length; i++) {
+                this.colorList.push(g_c240_255[i]);
+            }
+        }
+
+        return colorList;
+    }
+
+    get bgraBuffer(){
+        let colorList = this.bgra;
+        let buffer = Buffer.alloc(0);
+        for(let i=0;i<colorList.length;i++){
+            let BGRA = Buffer.from(colorList[i]);
+            buffer = Buffer.concat([buffer, BGRA]);
+        }
+        return buffer;
     }
 }
 
@@ -746,7 +810,7 @@ function cgpInit() {
     let cgpList = fs.readdirSync('./pal');
     // console.log(cgpList);
     for (let i = 0; i < cgpList.length; i++) {
-        CGPMAP.set(cgpList[i], new Cgp(fs.readFileSync(`./pal/${cgpList[i]}`)));
+        CGPMAP.set(cgpList[i], new Cgp(fs.readFileSync(`./pal/${cgpList[i]}`), true));
     }
 
     CGPMAP.length = cgpList.length;
