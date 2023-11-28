@@ -34,7 +34,7 @@ class GraphicInfo {
     constructor(buffer, idx = 0) {
         this.buffer = buffer;
         this.selfAddr = idx * 40;
-        // 0-3字节[LONG]反转为编号
+        // 0-3字节[LONG]为编号
         // 4-7字节[DWORD]指明圖片在數據文件中的起始位置
         // 8-11字节[DWORD]圖片數據塊的大小
         // 12-15字节[LONG]偏移量X
@@ -161,6 +161,44 @@ class GraphicInfo {
         this.buffer.slice(36, 40).writeIntLE(num, 0, 4);
         return this.buffer.slice(36, 40).readIntLE(0, 4);
     }
+
+    /**
+     * // 从数据创建图片信息对象
+     * @param {Object} data 
+     * @returns {GraphicInfo} 图片信息对象
+     */
+    initFromData(data) {
+        let buffer = Buffer.alloc(40);
+
+        // 0-3字节[LONG]为编号
+        buffer.writeIntLE(data.imgNum, 0, 4);
+        // 4-7字节[DWORD]指明圖片在數據文件中的起始位置
+        buffer.writeIntLE(data.addr, 4, 4);
+        // 8-11字节[DWORD]圖片數據塊的大小
+        buffer.writeIntLE(data.imgSize, 8, 4);
+        // 12-15字节[LONG]偏移量X, 1个格子为64*47, 偏移量-32,-24, 默认偏移量0-(图片宽度-64)/2
+        buffer.writeIntLE(data.offsetX || 0 - Math.floor((data.imgWidth - 64) / 2), 12, 4);
+        // 16-19字节[LONG]偏移量Y, 1个格子为64*47, 偏移量-32,-24, 默认偏移量0-(图片高度-47)/2
+        buffer.writeIntLE(data.offsetY || 0 - Math.floor((data.imgHeight - 47) / 2), 16, 4);
+        // 20-23字节[LONG]图片宽度
+        buffer.writeIntLE(data.imgWidth, 20, 4);
+        // 24-27字节[LONG]图片高度
+        buffer.writeIntLE(data.imgHeight, 24, 4);
+        // 28字节[BYTE]占地面积X, 默认1
+        buffer.writeIntLE(data.areaX || 1, 28, 1);
+        // 29字节[BYTE]占地面积Y, 默认1
+        buffer.writeIntLE(data.areaY || 1, 29, 1);
+        // 30字节[BYTE]用於地圖，0表示障礙物，1表示可以走上去, 默认1
+        buffer.writeIntLE(data.canMove || 1, 30, 1);
+        // 31-35字节[BYTE]Unknown
+        buffer.writeIntLE(0, 31, 5);
+        // 36-39字节[LONG]地图编号, 非地圖單位的此項均為0, 默认0
+        buffer.writeIntLE(data.mapId || 0, 36, 4);
+
+        this.buffer = buffer;
+
+        return this;
+    }
 }
 
 class Graphic {
@@ -171,13 +209,12 @@ class Graphic {
     constructor(buffer) {
         this.buffer = buffer;
         // 0-1字节固定为RD
-        // 2字节为版本, 偶數表示未壓縮，按位圖存放；奇數則表示壓縮過
+        // 2字节为版本, 0及2表示未壓縮，按位圖存放；奇數則表示壓縮過, 1为神獸傳奇+魔弓傳奇+龍之沙漏, 3为乐园之卵
         // 3字节未知
         // 4-7字节图片宽度
         // 8-11字节图片高度
         // 12-15字节块大小
-        // NOTE: 新版本16-19位为调色板, 20-N位为图片数据
-        // NOTE: 旧版本 16-N位为图片数据
+        // NOTE: 新版本16-19位为调色板, 20-N位为图片数据, 旧版本 16-N位为图片数据
         this.decodeBuffer = null;
     }
 
@@ -186,7 +223,6 @@ class Graphic {
     }
 
     set startBlock(str) {
-        // TODO: 待验证修改Graphic
         this.buffer.slice(0, 2).write(str, 0, 2);
         return this.buffer.slice(0, 2).toString();
     }
@@ -236,20 +272,8 @@ class Graphic {
         return this.buffer.slice(12, 16).readIntLE(0, 4);
     }
 
-    insertpalSize(num = 768) {
-        if (this.version & 2) {
-            return this.buffer.slice(16, 20).readIntLE(0, 4);
-        }
-
-        let part0 = this.buffer.slice(0, 16);
-        let paletteHex = Buffer.alloc(4);
-        paletteHex.writeIntLE(num, 0, 4);
-        let part1 = this.buffer.slice(16, this.buffer.length);
-        this.buffer = Buffer.concat([part0, paletteHex, part1]);
-        return this.buffer.slice(16, 20).readIntLE(0, 4);
-    }
-
     get palSize() {
+        // TODO: 目前验证版本是否携带调色板是用的version & 2, 计算出来2跟3都是true, 但是3的图片是有调色板的, 2的图片有没有调色板需进一步验证
         if (this.version & 2) {
             return this.buffer.slice(16, 20).readIntLE(0, 4);
         }
@@ -257,20 +281,26 @@ class Graphic {
     }
 
     set palSize(num) {
+        // 如果原本有调色板, 则修改调色板长度, 如果原本没有调色板, 则需要插入调色板长度数据
         if (this.version & 2) {
             this.buffer.slice(16, 20).writeIntLE(num, 0, 4);
             return this.buffer.slice(16, 20).readIntLE(0, 4);
         }
-        return 0;
+
+        //将原本的buffer分为两部分, 0-16位, 16位之后
+        let part0 = this.buffer.slice(0, 16);
+        let part1 = this.buffer.slice(16, this.buffer.length);
+        let paletteHex = Buffer.alloc(4);
+        paletteHex.writeIntLE(num, 0, 4);
+        this.buffer = Buffer.concat([part0, paletteHex, part1]);
+        return this.buffer.slice(16, 20).readIntLE(0, 4);
     }
 
     get cgp() {
-        // 获取图片自带调色板, 调色板是解压后的数据
-        if (this.version & 2) {
-            // let decodeBuffer = this.decode();
-            // let cgpHex = decodeBuffer.slice(decodeBuffer.length-this.palSize, decodeBuffer.length);
+        // 获取图片自带调色板
+        if (this.palSize) {
             let cgpHex = this.buffer.slice(this.buffer.length - this.palSize, this.buffer.length);
-            console.log('cgpHex: ', cgpHex.length, cgpHex.length/3);
+            console.log('cgpHex: ', cgpHex.length, cgpHex.length / 3);
             let cgp = new Cgp(cgpHex);
             return cgp;
         }
@@ -278,8 +308,15 @@ class Graphic {
     }
 
     set cgp(cgp) {
-        // TODO: 设置图片自带调色板
-
+        // 设置图片自带调色板
+        // 将cgp.bgrBuffer添加到this.buffer结尾
+        this.buffer = Buffer.concat([this.buffer, cgp.bgrBuffer]);
+        // 将this.palSize设置为cgp.bgrBuffer.length
+        this.palSize = cgp.bgrBuffer.length;
+        // 将this.version设置为3(3乐园之卵后开始自带调色板)
+        this.version = 3;
+        // 将this.imgSize设置为this.imgSize+this.palSize
+        this.imgSize = this.imgSize + this.palSize;
     }
 
     get pOffset() {
@@ -299,13 +336,26 @@ class Graphic {
     }
 
     set imgData(hex) {
-        // TODO:替换Graphic的bmp数据
+        // 替换Graphic的bmp数据
         if (this.version & 2) {
-            return this.buffer.slice(20, this.buffer.length - this.palSize);
+            let part0 = this.buffer.slice(0, 20);
+            let part1 = this.buffer.slice(this.buffer.length - this.palSize, this.buffer.length);
+            this.buffer = Buffer.concat([part0, hex, part1]);
+            return this;
+        }else{
+            let part0 = this.buffer.slice(0, 16);
+            this.buffer = Buffer.concat([part0, hex]);
         }
-        return this.buffer.slice(16, this.buffer.length);
+
+        this.imgSize = this.buffer.length;
+
+        return this;
     }
 
+    /**
+     * 图档解密
+     * @returns {Buffer} 解密后的图片数据
+     */
     decode() {
         let graphic = this;
         if (graphic.startBlock !== 'RD') {
@@ -329,18 +379,9 @@ class Graphic {
             return graphic.imgData;
         }
 
-        let keys = {};
         for (let i = 0; i < buf.length && i < size;) {
             let n1 = buf[i++];
             let chunk = null;
-
-            let _key = n1.toString(16);
-            if (_key.length === 1) {
-                _key = '0' + _key;
-            }
-            keys[_key] = true;
-
-            // keys[n1.toString(16)] = true;
 
             if (n1 < 0x10) {
                 // 0n	String	　	　	長度為n的字符串
@@ -396,6 +437,85 @@ class Graphic {
     }
 
     /**
+     * // TODO: 待验证图片压缩方法
+     * @param {Buffer} imgData 待压缩的图片数据
+     * @returns {Buffer} 压缩后的图片数据
+     */
+    encode(imgData) {
+        // 采用游程编码方式, 将imgData压缩
+        // 0n	xx	　	　	填充 n 个 xx
+        // 1n	m	xx	　	填充 n * 0x100 + m 个xx
+        // 2n	m	l   xx	填充 n * 0x10000 + (m * 0x100) + l 个xx
+        // 8n   xx          填充 n 个 xx
+        // 9n   m   xx      填充 n * 0x100 + m 个xx
+        // An   xx  m   l   填充 xx * 0x10000 + (m * 0x100) + l 个xx
+        // Cn               填充 n 个背景色
+        // Dn   m           填充 n * 0x100 + m 个背景色
+        // En   m   l       填充 n * 0x10000 + (m * 0x100) + l 个背景色
+
+        // 分解imgData, 获取连续的值, 生成值数组
+        let valueArr = [];
+        let lastValue = imgData[0];
+        let lastValueCount = 1;
+        for (let i = 1; i < imgData.length; i++) {
+            let value = imgData[i];
+            if (value === lastValue) {
+                lastValueCount++;
+            } else {
+                valueArr.push({ value: lastValue, count: lastValueCount });
+                lastValue = value;
+                lastValueCount = 1;
+            }
+        }
+
+        // 将值数组转换为游程编码后的数组
+        let runArr = [];
+        for (let i = 0; i < valueArr.length; i++) {
+            let value = valueArr[i].value;
+            let count = valueArr[i].count;
+
+            let buf;
+            if(value === 0){
+                // 透明色
+                if(count < 0x10){
+                    let n = 0xC0 + count;
+                    buf = Buffer.from([n]);
+                }else if(count < 0x100){
+                    let n = 0xD0 + Math.floor(count / 0x100);
+                    let m = count % 0x100;
+                    buf = Buffer.from([n, m]);
+                }else if(count < 0x10000){
+                    let n = 0xE0 + Math.floor(count / 0x10000);
+                    let m = Math.floor(count / 0x100) % 0x100;
+                    let c = count % 0x100;
+                    buf = Buffer.from([n, m, c]);
+                }
+            } else if(typeof(value)=='string') {
+                // 字符串 ??? bmp图片数据中会有字符串嘛?
+
+            }else{
+                // 非透明色
+                if(count < 0x10){
+                    buf = Buffer.from([count, value]);
+                }else if(count < 0x100){
+                    let n = Math.floor(count / 0x100);
+                    let m = count % 0x100;
+                    buf = Buffer.from([0x10 + n, m, value]);
+                }else if(count < 0x10000){
+                    let n = Math.floor(count / 0x10000);
+                    let m = Math.floor(count / 0x100) % 0x100;
+                    let l = count % 0x100;
+                    buf = Buffer.from([0x20 + n, m, l, value]);
+                }
+            }
+
+            runArr.push(buf);
+        }
+
+        return Buffer.concat(runArr);
+    }
+
+    /**
      * 生成bmp图片
      * 参考链接: https://blog.csdn.net/u013066730/article/details/82625158
      * @param {String} filePath 生成图片的目录+文件名
@@ -410,9 +530,9 @@ class Graphic {
         // 调色板数据(BGRA), 256*4位=1024位, 传入cgp>图片自带cgp>默认cgp
         cgp = cgp || this.cgp || CGPMAP.get('palet_00.cgp');
         let bgraBuffer = cgp.bgraBuffer;
-        if(alphaColor){
+        if (alphaColor) {
             // 如果传入了alphaColor, 则将调色板中第一组色值改为alphaColor的色值
-            for(let i=0;i<alphaColor.length;i++){
+            for (let i = 0; i < alphaColor.length; i++) {
                 bgraBuffer.writeUInt8(alphaColor[i], i);
             }
         }
@@ -472,6 +592,69 @@ class Graphic {
         // 回调图片地址
         fs.writeFileSync(filePath, bmpData);
         callback();
+    }
+
+    /**
+     * // TODO: 待验证从bmp文件初始化
+     * @param {String} filePath BMP文件路径
+     * @param {Function} callback 回调函数
+     */
+    initFromBMP(filePath, callback) {
+        let bmpHex = fs.readFileSync(filePath);
+
+        // 验证bmp文件头
+        let bmpHead = bmpHex.slice(0, 2).toString();
+        if (bmpHead !== 'BM') {
+            throw new Error('错误的bmp文件头');
+        }
+
+        // 验证bmp位数
+        let bitCount = bmpHex.slice(28, 30).readIntLE(0, 2);
+        if (bitCount !== 8) {
+            throw new Error('错误的bmp位数, 请使用8位bmp文件');
+        }
+
+        // 获取图片宽度
+        let imgWidth = bmpHex.slice(18, 22).readIntLE(0, 4);
+        // 获取图片高度
+        let imgHeight = bmpHex.slice(22, 26).readIntLE(0, 4);
+        // 获取调色板长度
+        let palSize = bmpHex.slice(46, 50).readIntLE(0, 4);
+        // 获取调色板数据
+        let bgraBuffer = bmpHex.slice(54, 54 + palSize);
+        // 将bgra调色板转换为bgr调色板
+        let cgp = new Cgp().initFromBgra(bgraBuffer);
+        console.log('cgp: ', cgp.bgra, cgp.bgr);
+        let bgrBuffer = cgp.bgrBuffer;
+
+        // 获取图片数据
+        let imgData = bmpHex.slice(54 + palSize, bmpHex.length);
+        // 压缩图片数据(可大幅度减少图片数据大小)
+        let encodeImgData = this.encode(imgData);
+
+        // 创建graphic数据头
+        let graphicBuffer = Buffer.alloc(20);
+        // 0-1字节固定为RD
+        graphicBuffer.write('RD', 0, 2);
+        // 2字节为版本, 自带调色板为3, 图片数据需加密
+        graphicBuffer.writeIntLE(3, 2, 1);
+        // 3字节未知, 写入0
+        graphicBuffer.writeIntLE(0, 3, 1);
+        // 4-7字节图片宽度
+        graphicBuffer.writeIntLE(imgWidth, 4, 4);
+        // 8-11字节图片高度
+        graphicBuffer.writeIntLE(imgHeight, 8, 4);
+        // 12-15字节块大小
+        graphicBuffer.writeIntLE(20 + encodeImgData.length + bgrBuffer.length, 12, 4);
+        // 16-19字节调色板长度
+        graphicBuffer.writeIntLE(bgrBuffer.length, 16, 4);
+
+        // 拼接 graphic数据头 + 图片数据 + 调色板数据
+        let finalBuffer = Buffer.concat([graphicBuffer, encodeImgData, bgrBuffer]);
+
+        this.buffer = finalBuffer;
+
+        return this;
     }
 }
 
@@ -664,7 +847,6 @@ class Frame {
 
 class DecodeBuffer {
     constructor(width, height) {
-        // this.buffer = Buffer.alloc(width * height);
         this.buffer = Buffer.alloc(0);
     }
 
@@ -728,7 +910,7 @@ class Cgp {
         this.isDefault = isDefault;
     }
 
-    get bgr(){
+    get bgr() {
         let colorList = [];
         let len = this.buffer.length / 3;
         for (let i = 0; i < len; i++) {
@@ -751,22 +933,22 @@ class Cgp {
         return colorList;
     }
 
-    get bgrBuffer(){
+    get bgrBuffer() {
         let colorList = this.bgr;
         let buffer = Buffer.alloc(0);
-        for(let i=0;i<colorList.length;i++){
+        for (let i = 0; i < colorList.length; i++) {
             let BGR = Buffer.from(colorList[i]);
             buffer = Buffer.concat([buffer, BGR]);
         }
         return buffer;
     }
 
-    get bgra(){
+    get bgra() {
         let colorList = [];
         let alpha = 0;
 
-        if(this.isDefault){
-            for(let i=0;i<g_c0_15.length;i++){
+        if (this.isDefault) {
+            for (let i = 0; i < g_c0_15.length; i++) {
                 colorList.push([...g_c0_15[i], alpha]);
             }
         }
@@ -791,14 +973,38 @@ class Cgp {
         return colorList;
     }
 
-    get bgraBuffer(){
+    get bgraBuffer() {
         let colorList = this.bgra;
         let buffer = Buffer.alloc(0);
-        for(let i=0;i<colorList.length;i++){
+        for (let i = 0; i < colorList.length; i++) {
             let BGRA = Buffer.from(colorList[i]);
             buffer = Buffer.concat([buffer, BGRA]);
         }
         return buffer;
+    }
+
+    /**
+     * 从bgraBuffer初始化
+     * @param {Buffer} bgraBuffer 
+     */
+    initFromBgra(bgraBuffer) {
+        if (bgraBuffer.length % 4 !== 0) {
+            throw new Error('错误的bgraBuffer');
+        }
+
+        let len = bgraBuffer.length / 4;
+        let buffer = Buffer.alloc(0);
+        for (let i = 0; i < len; i++) {
+            let B = bgraBuffer[i * 4];
+            let G = bgraBuffer[i * 4 + 1];
+            let R = bgraBuffer[i * 4 + 2];
+            buffer = Buffer.concat([buffer, Buffer.from([B, G, R])]);
+        }
+
+        this.buffer = buffer;
+        this.isDefault = false;
+
+        return this;
     }
 }
 

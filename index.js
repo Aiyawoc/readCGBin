@@ -6,8 +6,6 @@
 const fs = require('fs');
 const Path = require('path');
 const loger = require('./modules/log');
-const {decode} = require('./modules/binDecode');
-let {CGPMAP} = require('./modules/config');
 
 function log(str, type='main'){
     str = JSON.stringify(str);
@@ -29,7 +27,7 @@ let ADataList = []; //存储动画数据的全局变量, 在读取Info文件时�
 
 
 /**
- * 读取graphicInfo, animeInfo文件
+ * // DONE: 读取graphicInfo, animeInfo文件
  * @param {Object} pathList  .graphicInfoPath gInfo文件地址 .animeInfoPath aInfo文件地址
  * @param {Function} callback 回调函数, 返回[graphicInfoArray, animeInfoArray]
  */
@@ -62,7 +60,7 @@ function readCGInfoFile(pathList, callback) {
 
 
 /**
- * 读取graphicInfo文件
+ * // DONE: 读取graphicInfo文件
  * @param {String} path gInfo文件地址
  * @param {Function} callback 回调函数, 返回graphicInfoArray
  */
@@ -93,7 +91,7 @@ function getGraphicInfo(path, callback) {
 
 
 /**
- * 递归方式批量将grahpic, graphicInfo逐条拆分到目录文件
+ * // DONE: 递归方式批量将grahpic, graphicInfo逐条拆分到目录文件
  * @param {String} gPath graphic文件路径
  * @param {Array} gInfoList 要拆分的graphicInfo对象数组
  * @param {String} nameSpace 路径目录名
@@ -175,7 +173,7 @@ function getGraphicDataList(gPath, gInfoList, nameSpace, passHave = true, callba
 
 
 /**
- * 获取图片数据
+ * // DONE: 获取图片数据
  * @param {String} path graphic文件路径
  * @param {GraphicInfo} info 要提取的图片信息 
  * @param {Function} callback 回调函数, 返回目标Graphic对象
@@ -212,7 +210,7 @@ function getGraphicData(path, info, callback) {
 
 
 /**
- * 保存图片信息
+ * // DONE: 保存图片信息
  * @param {GraphicInfo} info 图片信息数据 
  * @param {String} nameSpace 路径名称
  * @param {Function} callback 回调函数
@@ -243,7 +241,7 @@ function saveGraphicInfo(info, nameSpace, callback) {
 
 
 /**
- * 拆分保存单条graphic数据
+ * // DONE: 拆分保存单条graphic数据
  * @param {Number} imgNum 图片编号
  * @param {Graphic} data Graphic对象
  * @param {String} nameSpace output目录中的命名空间, 一般为动画编号
@@ -275,7 +273,7 @@ function saveGraphicData(imgNum, data, nameSpace, callback) {
 
 
 /**
- * 读取AnimeInfo文件
+ * // DONE: 读取AnimeInfo文件
  * @param {String} path AnimeInfo文件路径
  * @param {Function} callback 回调函数, 返回AnimeInfo对象数组
  */
@@ -302,7 +300,7 @@ function getAnimeInfo(path, callback) {
 
 
 /**
- * 读取动画数据文件
+ * // DONE: 读取动画数据文件
  * @param {String} path 动画数据文件路径
  * @param {Object} info 动画信息
  * @param {Number} endAddr 动画结束地址, 不传则为文件结尾
@@ -327,7 +325,7 @@ function getAnimeData(path, info, endAddr, callback) {
 
 
 /**
- * 在output目录中创建目标数据的目录
+ * // DONE: 在output目录中创建目标数据的目录
  * @param {Sting} nameSpace 目标数据命名空间
  * @param {Function} cb 回调函数
  */
@@ -397,7 +395,7 @@ function mkDataDir(nameSpace, cb) {
 
 
 /**
- * 获取指定路径的命名空间, 主要用于判断文件版本, 例如 PUK3, EX等
+ * // DONE: 获取指定路径的命名空间, 主要用于判断文件版本, 例如 PUK3, EX等
  * @param {Number} path 目标路径
  * @returns {String}
  */
@@ -412,7 +410,7 @@ function getNameSpace(path) {
 
 
 /**
- * 获取graphicInfo文件中最后一条数据的图片编号
+ * // DONE: 获取graphicInfo文件中最后一条数据的图片编号
  * @param {String} path graphicInfo文件地址
  * @param {Function} callback 回调函数, 返回imgNum
  */
@@ -430,7 +428,7 @@ function getGInfoLastNum(path, callback) {
 
 
 /**
- * 将gInfo文件列表和g文件列表合并到目标文件中
+ * // DONE: 将gInfo文件列表和g文件列表合并到目标文件中
  * @param {Object} imgNumDictionary 用于存放图片原始编号与新编号的字典
  * @param {Array} gInfoPathArr 待合并的gInfo文件地址数组
  * @param {Array} gPathArr 待合并的g文件地址数组
@@ -482,7 +480,7 @@ function addGraphicListToFile(imgNumDictionary, gInfoPathArr, gPathArr, startNum
 
 
 /**
- * 将anime文件列表合并到目标文件中
+ * // DONE: 将anime文件列表合并到目标文件中
  * @param {Object} imgNumDictionary 存放图片原始编号与新编号的字典, 用于更新frame的图片编号
  * @param {Array} aPathArr 待写入的anime文件地址数组
  * @param {String} tarAPath 目标Anime文件地址
@@ -512,7 +510,7 @@ function addAnimeListToFile(imgNumDictionary, aPathArr, tarAPath,callback){
 
 
 /**
- * 读取目录中的文件
+ * // DONE: 读取目录中的文件
  * @param {String} path 目录路径,注意结尾需带/
  * @param {Number} start 起始编号, 默认值为null, 即获取全部
  * @param {Number} end 结束编号, 默认值为null, 即获取全部
@@ -546,7 +544,7 @@ function getFileList(path, start = null, end = null, callback) {
 
 
 /**
- * 拆分指定动画编号的数据
+ * // DONE: 拆分指定动画编号的数据
  * @param {Object} pathList 文件地址对象, {animeInfoPath, animePath, graphicInfoPath, graphicPath}
  * @param {Number} animeId 指定动画ID
  * @param {Function} callback 回调函数
@@ -641,7 +639,7 @@ function getAnimeById(pathList, animeId, callback) {
 
 
 /**
- * 将指定id动画合并到目标文件
+ * // DONE: 将指定id动画合并到目标文件
  * @param {Number} animeId 动画ID, 为当前工程output中存在的编号, 一般由getAnimeById创建
  * @param {Object} tarPath 目标文件地址, {aInfoPath, aPath, gInfoPath, gPath}
  * @param {Function} callback 回调函数
@@ -773,7 +771,7 @@ function addAnimeById(animeId, tarPath, callback) {
 
 
 /**
- * 检查目标文件是否存在, 如果不存在, 则创建, 并返回相应需要的值
+ * // DONE: 检查目标文件是否存在, 如果不存在, 则创建, 并返回相应需要的值
  * @param {Object} tarPath {tarAInfoPath, tarAPath, tarGInfoPath, tarGPath}
  * @param {Function} callback 回调函数
  */
@@ -831,7 +829,7 @@ function checkTarPath(tarPath, callback){
 }
 
 /**
- * 删除目标文件中指定的动画数据
+ * // DONE: 删除目标文件中指定的动画数据
  * @param {Number} animeId 要删除的动画ID
  * @param {Object} tarPath 目标文件路径 {aInfoPath, aPath, gInfoPath, gPath}
  * @param {Boolean} delGraphic 是否删除对应的图片数据
@@ -922,7 +920,7 @@ function removeAnimeById(animeId, tarPath, delGraphic=true, callback){
 
 
 /**
- * 删除目标文件中指定的图片数据
+ * // DONE: 删除目标文件中指定的图片数据
  * @param {Array} imgList 要删除的图片编号数组
  * @param {Object} tarPath 目标文件路径 {aInfoPath, aPath, gInfoPath, gPath}
  * @param {Function} callback 回调函数
@@ -981,7 +979,7 @@ function removeGraphics(imgList, tarPath, callback){
 
 
 /**
- * buffer分割方法, 删除从start起指定长度的数据, 包含start
+ * // DONE: buffer分割方法, 删除从start起指定长度的数据, 包含start
  * @param {Number} start 起始位置
  * @param {Number} size 删除的位数
  * @returns {Buffer} 删除后新的buffer
@@ -1005,7 +1003,13 @@ function bufferSplice(buffer, start, size){
 }
 
 
+/**
+ * // TODO: 获取可用id
+ * @param {Function} callback 回调函数
+ */
+function getUsableId(callback){
 
+}
 
 
 
@@ -1064,16 +1068,19 @@ const tfAPath = './bin/TF/bin/Puk3/Anime_PUK3_2.bin';
 const tarGPath = './output/108303/graphic/Graphic_108303_0.bin';
 let graphic = new Graphic(fs.readFileSync(tarGPath));
 
-let cgp = graphic.cgp;
-console.log('cgp.bgrBuffer.length',cgp.bgrBuffer.length);
-fs.writeFileSync('./color.act', cgp.bgrBuffer);
-// console.log(cgp.bgrBuffer);
-// console.log(cgp.bgra);
-// console.log(cgp.bgraBuffer);
+// let cgp = graphic.cgp;
+let decodeImgData = graphic.decode();
+fs.writeFileSync('./decodeImgData.bin', decodeImgData);
+// console.log('cgp.bgrBuffer.length',cgp.bgrBuffer.length);
+// fs.writeFileSync('./color.act', cgp.bgrBuffer);
+// // console.log(cgp.bgrBuffer);
+// // console.log(cgp.bgra);
+// // console.log(cgp.bgraBuffer);
 
-graphic.createBMP('./test2.bmp',[0,0,0,0], null, ()=>{
+graphic.createBMP('./test2.bmp', [0,0,0,0], null, ()=>{
     console.log('./test2.bmp');
 });
+
 
 
 // let decodeGraphic = decode(graphic);
@@ -1276,8 +1283,7 @@ graphic.createBMP('./test2.bmp',[0,0,0,0], null, ()=>{
 
 
 
-/* 
-NOTE: 闹闹关于图档变色的解释
+/* NOTE: 闹闹关于图档变色的解释
 其实图档变色很简单，懂得图档结构后，就可以自己制作客户端图档了。
 说的简单点，魔力图档就是，图片转换成8位BMP格式，宽度是4的倍数，高度不限，其内容为数据+调色板，
 通常调色板中黑色（RGB 0 0 0）为底色，作为游戏中透明用，
