@@ -492,9 +492,6 @@ class Graphic {
                 }
             } else if(typeof(value)=='string') {
                 // 字符串 ??? bmp图片数据中会有字符串嘛?
-
-            }else{
-                // 非透明色
                 if(count < 0x10){
                     buf = Buffer.from([count, value]);
                 }else if(count < 0x100){
@@ -506,6 +503,21 @@ class Graphic {
                     let m = Math.floor(count / 0x100) % 0x100;
                     let l = count % 0x100;
                     buf = Buffer.from([0x20 + n, m, l, value]);
+                }
+            }else{
+                // 非透明色
+                if(count < 0x10){
+                    let n = 0x80 + count;
+                    buf = Buffer.from([n, value]);
+                }else if(count < 0x100){
+                    let n = 0x90 + Math.floor(count / 0x100);
+                    let m = count % 0x100;
+                    buf = Buffer.from([n, value, m]);
+                }else if(count < 0x10000){
+                    let n = 0xA0 + Math.floor(count / 0x10000);
+                    let m = Math.floor(count / 0x100) % 0x100;
+                    let l = count % 0x100;
+                    buf = Buffer.from([n, value, m, l]);
                 }
             }
 
