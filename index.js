@@ -76,8 +76,9 @@ function getGraphicInfo(path, callback) {
             callback(infoArr);
             return;
         }
-        
+
         let len = data.length / 40;
+        console.log(data.length, len);
         for (let i = 0; i < len; i++) {
             let _buffer = data.slice(i * 40, i * 40 + 40);
             let gInfo = new GraphicInfo(_buffer, i);
@@ -1060,12 +1061,21 @@ const tfAPath = './bin/TF/bin/Puk3/Anime_PUK3_2.bin';
 
 
 
-const tarGPath = './output/108299/graphic/Graphic_108299_230960.bin';
+const tarGPath = './output/108303/graphic/Graphic_108303_0.bin';
 let graphic = new Graphic(fs.readFileSync(tarGPath));
-console.log({graphic}, graphic.imgWidth, graphic.imgHeight);
-graphic.createBMP(null, ()=>{
 
+let cgp = graphic.cgp;
+console.log('cgp.bgrBuffer.length',cgp.bgrBuffer.length);
+fs.writeFileSync('./color.act', cgp.bgrBuffer);
+// console.log(cgp.bgrBuffer);
+// console.log(cgp.bgra);
+// console.log(cgp.bgraBuffer);
+
+graphic.createBMP('./test2.bmp',[0,0,0,0], null, ()=>{
+    console.log('./test2.bmp');
 });
+
+
 // let decodeGraphic = decode(graphic);
 // console.log(decodeGraphic);
 // console.log(CGPMAP.get('palet_00.cgp'));
@@ -1133,13 +1143,13 @@ graphic.createBMP(null, ()=>{
 // });
 
 
-// // 从目标文件中拆分id为108215的数据
+// // 从目标文件中拆分id为108303的数据
 // getAnimeById({
-//     animeInfoPath: tfAInfoPath,
-//     animePath: tfAPath,
-//     graphicInfoPath: tfGInfoPath,
-//     graphicPath: tfGPath
-// }, 108215, data => {
+//     animeInfoPath: './bin/108303_3/AnimeInfo_PUK2_4.bin',
+//     animePath: './bin/108303_3/Anime_PUK2_4.bin',
+//     graphicInfoPath: './bin/108303_3/GraphicInfo_PUK2_2.bin',
+//     graphicPath: './bin/108303_3/Graphic_PUK2_2.bin'
+// }, 108303, data => {
 //     log('==== 读取任务完成 ====');
 // });
 
@@ -1297,11 +1307,37 @@ NOTE: 闹闹关于图档变色的解释
 // XXX: 对比修复前后的graphic文件, 第一张图片的长度减少4684长度数据, 是调色板长度的6倍, 猜测是6组调色板数据, 但未在.cgp文件中找到类似的数据?
 // XXX: 对比修复前后的graphic文件, RD开头的数量, 减少了19个 X, 有非图片头的数据也是RD
 
+// NOTE: 修复前版本, 压缩版本01 82, 采用全局调色板, 花屏, 内置496号图为隐藏调色板, 调色板长度750, 文件大小:8A7602
+// NOTE: _2版本, 压缩版本01 82, 采用全局调色板, 内置496号图为隐藏调色板, 调色板长度750, 文件大小:69FB71, 猜测是根据隐藏调色板的数据对比官方调色板, 修改了原始数据
+// NOTE: _3版本, 压缩版本03 00, 删除了496号隐藏调色板, 改为每张图内置调色板, 调色板长度750, 文件大小:8FDF12
 // NOTE: _2版本, _3版本打入后均正常显示
-// NOTE: 修复前g文件大小:8A7602, _2版本g文件大小:69FB71, _3版本g文件大小:8FDF12
-// NOTE: 修复前gInfo中图片信息数为497, _2版本gInfo中图片信息数为497, _3版本gInfo中图片信息数为495
-// NOTE: 修复前, 与_2版本修复中, 都有一张图片MapId==AnimieID, 为隐藏调色板文件, 且gInfo文件中有2条数据指向这同一张图片
-// NOTE: _2版本修复为把隐藏调色板去掉, 使用全局调色板, 因此图档文件变小
+
+// NOTE: 从图片解出来的调色板颜色不对, 尝试不解压调色板部分  
+
+
+/*
+// TODO: 调色板修复(全局调色板)方法:
+    1. 获取调色板数据
+    2. 遍历graphic解压后的图片数据, 获取每个字节在自带调色板中的色值, 在官方调色板中找到该色值的索引, 将索引值存入新的buffer中
+    3. 更新图片数据, 有2种方式:
+        a. 将新的buffer直接替换graphic中的图片数据, 并修改graphic中的imgSize, palSize, 修改ver为02(未压缩)
+        b. 将新的buffer重新压缩后, 再替换graphic中的图片数据, 并修改graphic中的imgSize, palSize
+*/
+
+/* 
+// TODO: 调色板修复(独立调色板)方法:
+    1. 读取anime文件, 获取所有图片列表
+    2. 遍历图片列表, 找到mapId == animeId的图片
+    3. 从图片中获取ver/pad/调色板数据
+    4. 将调色板数据插入graphic结尾, 并修改giaphic中的imgSize, palSize等信息
+    5. 更新graphicInfo文件中图片的地址和长度
+    6. 
+*/
+
+
+// NOTE: 修复前gInfo中图片信息数为497, _2版本gInfo中图片信息数为497, _3版本gInfo中图片信息数为496(删除了隐藏调色板的图片)
+// NOTE: 修复前, 与_2版本修复中, 都有一张图片MapId==AnimieID, 为隐藏调色板文件
+// NOTE: _2版本修复为把隐藏调色板去掉, 使用全局调色板, 因此图档文件变小 ??? 
 // NOTE: _3版本修复为把动画的隐藏调色板加到了每张图片中, 因此图档文件变大
 // NOTE: 群友[無憂無慮]提示转全局后颜色变少，压缩后就更小了, RD版本02或03的才带独立调色板，00或01没有，使用全局调色板，就是那些cgp文件; 但RD01的也可能是使用隐藏调色板，由anime里的调色板号决定，或者用动画ID查找; puk后的图档大部分都是隐藏调色板; 提取为全局或独立调色就不需要; 调色板和图片索引数据一起压缩了; 一般是768字节，有些调色板长度不足768; 
 // NOTE: 群友[fantastic]: 文件头有数据长度和调色板长度, 解壓後到字節數滿足為止, 就是調色板數據; 不用管解壓到哪裡 反正解壓到字節滿足為止

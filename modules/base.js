@@ -267,9 +267,10 @@ class Graphic {
     get cgp() {
         // 获取图片自带调色板, 调色板是解压后的数据
         if (this.version & 2) {
-            let decodeBuffer = this.decode();
-            let cgpHex = decodeBuffer.slice(decodeBuffer.length-this.palSize, decodeBuffer.length);
-            // console.log('cgpHex: ', cgpHex.length, cgpHex.length/3);
+            // let decodeBuffer = this.decode();
+            // let cgpHex = decodeBuffer.slice(decodeBuffer.length-this.palSize, decodeBuffer.length);
+            let cgpHex = this.buffer.slice(this.buffer.length - this.palSize, this.buffer.length);
+            console.log('cgpHex: ', cgpHex.length, cgpHex.length/3);
             let cgp = new Cgp(cgpHex);
             return cgp;
         }
@@ -290,17 +291,19 @@ class Graphic {
 
     get imgData() {
         if (this.version & 2) {
-            return this.buffer.slice(20, this.imgSize);
+            // 当有调色板数据时, 截取从20位开始, 到buffer.lenght-调色板大小
+            return this.buffer.slice(20, this.buffer.length - this.palSize);
         }
-        return this.buffer.slice(16, this.imgSize);
+        // 当没有调色板数据时, 截取从16位开始, 到buffer.lenght
+        return this.buffer.slice(16, this.buffer.length);
     }
 
     set imgData(hex) {
         // TODO:替换Graphic的bmp数据
         if (this.version & 2) {
-            return this.buffer.slice(20, this.imgSize);
+            return this.buffer.slice(20, this.buffer.length - this.palSize);
         }
-        return this.buffer.slice(16, this.imgSize);
+        return this.buffer.slice(16, this.buffer.length);
     }
 
     decode() {
@@ -313,20 +316,17 @@ class Graphic {
         let pad = graphic.pad;
         let w = graphic.imgWidth;
         let h = graphic.imgHeight;
-        let size = graphic.imgSize;
         let palSize = graphic.palSize;
+        let buf = graphic.imgData;
+        let size = graphic.imgSize;
         let pOffset = graphic.pOffset;
 
-        // console.log({ver, pad, w, h, size, palSize, pOffset});
-
-        let buf = graphic.imgData;
         let decodeBuf = new DecodeBuffer();
 
         // 当ver为偶数时, 即没有压缩, 直接返回数据
         if ((ver & 0x1) === 0) {
             console.log('not compress', ver, size, w, h, w * h);
-            // return { ver, pad, palSize, size: w * h, buffer: buf };
-            return graphic.imgSize;
+            return graphic.imgData;
         }
 
         let keys = {};
@@ -392,28 +392,37 @@ class Graphic {
             }
         }
 
-        // let allKey = Object.keys(keys);
-        // console.log(allKey);
-
-        // console.log(decodeBuf.buffer);
-        // return { ver, pad, palSize, size: w * h, buffer: decodeBuf.buffer };
         return decodeBuf.buffer;
     }
 
-    createBMP(cgp, callback) {
-        // TODO: 将本图像文件转为bmp
-        // 参考链接: https://blog.csdn.net/u013066730/article/details/82625158
+    /**
+     * 生成bmp图片
+     * 参考链接: https://blog.csdn.net/u013066730/article/details/82625158
+     * @param {String} filePath 生成图片的目录+文件名
+     * @param {Array} alphaColor 设置背景色BGRA[0, 0, 0, 0]
+     * @param {Cgp} cgp 调色板, 传入cgp>图片自带cgp>默认官方cgp
+     * @param {Function} callback 回调函数
+     */
+    createBMP(filePath, alphaColor, cgp, callback) {
         // 调用encode将this.buffer解密
-        let decodeBuffer = this.decode();
-        fs.writeFileSync('./decodeGraphic.bin', decodeBuffer);
+        let imgData = this.decode();
 
         // 调色板数据(BGRA), 256*4位=1024位, 传入cgp>图片自带cgp>默认cgp
         cgp = cgp || this.cgp || CGPMAP.get('palet_00.cgp');
+        let bgraBuffer = cgp.bgraBuffer;
+        if(alphaColor){
+            // 如果传入了alphaColor, 则将调色板中第一组色值改为alphaColor的色值
+            for(let i=0;i<alphaColor.length;i++){
+                bgraBuffer.writeUInt8(alphaColor[i], i);
+            }
+        }
+
+        console.log(bgraBuffer);
 
         // 获得像素数据, 生成bmp文件
         let imgWidth = this.imgWidth;
         let imgHeight = this.imgHeight;
-        let fileSize = 14 + 40 + cgp.buffer.length + decodeBuffer.length;
+        let fileSize = 14 + 40 + bgraBuffer.length + imgData.length;
 
         let offset = 0;
 
@@ -428,7 +437,7 @@ class Graphic {
         // 8-9字节保留, 为0
         bmpHead.writeIntLE(0, offset, 2); offset += 2;
         // 10-13字节为数据偏移量, 从文件头开始到实际图像数据的偏移量, 为bmp头14位+位图信息头40位+调色盘位
-        bmpHead.writeIntLE(14 + 40 + cgp.length, offset, 4); offset += 4;
+        bmpHead.writeIntLE(14 + 40 + bgraBuffer.length, offset, 4); offset += 4;
 
         // 位图信息头 40位
         let imgHead = Buffer.alloc(40); offset = 0;
@@ -444,25 +453,24 @@ class Graphic {
         imgHead.writeIntLE(8, offset, 2); offset += 2;
         // 16-19位图像压缩方式, 0:BI_RGB不压缩(最常用), 1:BI_RLE8 8比特游程编码,只用于8位位图, 2:BI_RLE4 4比特游程编码, 只用于4位位图, 3:BI_bitfields 比特域, 用于16/32位位图, 4: JPEG, 5为PNG
         imgHead.writeIntLE(0, offset, 4); offset += 4;
-        // 20-23位图数据大小, 采用BI_RGB时可设置为0
-        imgHead.writeIntLE(0, offset, 4); offset += 4;
+        // 20-23位图数据大小
+        // imgHead.writeIntLE(0, offset, 4); offset += 4;
+        // imgHead.writeIntLE(fileSize, offset, 4); offset += 4;
+        imgHead.writeIntLE(imgData.length, offset, 4); offset += 4;
         // 24-27水平分辨率, 像素/米
         imgHead.writeIntLE(0, offset, 4); offset += 4;
         // 28-31垂直分辨率, 像素/米
         imgHead.writeIntLE(0, offset, 4); offset += 4;
         // 32-35位图实际使用的调色板中的颜色数, 设置为0时表示使用全部调色板项, cg采用256色
         imgHead.writeIntLE(256, offset, 4); offset += 4;
-        // 36-39位图显示过程中重要的颜色数, 设置为0时表示所有颜色都重要, cg采用256色
-        imgHead.writeIntLE(256, offset, 4); offset += 4;
-
-        
+        // 36-39位图显示过程中重要的颜色数, 设置为0时表示所有颜色都重要
+        imgHead.writeIntLE(0, offset, 4); offset += 4;
 
         // 位图数据, 每个像素1个字节, 以该字节为索引, 在调色板中取颜色
-
-        let bmpData = Buffer.concat([bmpHead, imgHead, cgp.buffer, decodeBuffer]);
+        let bmpData = Buffer.concat([bmpHead, imgHead, bgraBuffer, imgData]);
 
         // 回调图片地址
-        fs.writeFileSync('./test.bmp', bmpData);
+        fs.writeFileSync(filePath, bmpData);
         callback();
     }
 }
@@ -718,8 +726,6 @@ class Cgp {
     constructor(buffer, isDefault = false) {
         this.buffer = buffer;
         this.isDefault = isDefault;
-        this.bgrBuffer = null;
-        this.bgraBuffer = null;
     }
 
     get bgr(){
@@ -729,28 +735,20 @@ class Cgp {
             let B = this.buffer[i * 3];
             let G = this.buffer[i * 3 + 1];
             let R = this.buffer[i * 3 + 2];
-            let A = 0;
 
-            this.colorList.push([B, G, R]);
+            colorList.push([B, G, R]);
         }
 
-        if (isDefault) {
+        if (this.isDefault) {
             // 官方调色板, 需增加前16色并从240开始覆盖后16色
-            this.colorList = [...g_c0_15, ...this.colorList];
-            this.colorList.length = 240;
+            colorList = [...g_c0_15, ...colorList];
+            colorList.length = 240;
             for (let i = 0; i < g_c240_255.length; i++) {
-                this.colorList.push(g_c240_255[i]);
+                colorList.push(g_c240_255[i]);
             }
         }
 
         return colorList;
-
-        // // 需更新buffer
-        // this.buffer = Buffer.alloc(0);
-        // for (let i = 0; i < this.colorList.length; i++) {
-        //     let BGRA = Buffer.from(this.colorList[i]);
-        //     this.buffer = Buffer.concat([this.buffer, BGRA]);
-        // }
     }
 
     get bgrBuffer(){
@@ -765,10 +763,11 @@ class Cgp {
 
     get bgra(){
         let colorList = [];
+        let alpha = 0;
 
         if(this.isDefault){
             for(let i=0;i<g_c0_15.length;i++){
-                colorList.push([...g_c0_15[i], 0]);
+                colorList.push([...g_c0_15[i], alpha]);
             }
         }
 
@@ -777,16 +776,15 @@ class Cgp {
             let B = this.buffer[i * 3];
             let G = this.buffer[i * 3 + 1];
             let R = this.buffer[i * 3 + 2];
-            let A = 0;
-
-            colorList.push([B, G, R, A]);
+            // RGB RBG GBR GRB BRG BGR
+            colorList.push([B, G, R, alpha]);
         }
 
-        if (isDefault) {
+        if (this.isDefault) {
             // 官方调色板, 从240开始覆盖后16色
             colorList.length = 240;
             for (let i = 0; i < g_c240_255.length; i++) {
-                this.colorList.push(g_c240_255[i]);
+                this.colorList.push([...g_c240_255[i], alpha]);
             }
         }
 
