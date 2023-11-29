@@ -75,8 +75,14 @@ function getGraphicInfo(path, callback) {
             return;
         }
 
+        if (data.length % 40 != 0) {
+            log(`读取GraphicInfo文件[${path}]失败, 数据长度异常:${data.length}`);
+            callback(infoArr);
+            return;
+        }
+
         let len = data.length / 40;
-        console.log(data.length, len);
+
         for (let i = 0; i < len; i++) {
             let _buffer = data.slice(i * 40, i * 40 + 40);
             let gInfo = new GraphicInfo(_buffer, i);
@@ -1012,6 +1018,124 @@ function getUsableId(callback){
 }
 
 
+/**
+ * // 修复调色板
+ * @param {Object} pathList 文件路径对象, {aInfoPath, aPath, gInfoPath, gPath}
+ * @param {Number} type 修复方法, 0:修复为自带调色板 1:修复为全局调色板, 默认0
+ * @param {Function} callback 回调函数 
+ */
+function repairPalette(pathList, type=0, callback){
+    let {aInfoPath, aPath, gInfoPath, gPath} = pathList;
+
+    // 0. 读取animeInfo文件, 获取动画id
+    let p0 = new Promise((resolve, reject)=>{
+        getAnimeInfo(aInfoPath, aInfoArr=>{
+            let animeId = aInfoArr[0].animeId;
+            resolve(animeId);
+        });
+    });
+
+    // 1. 读取gInfo文件, 获取图片列表, 检索是否存在mapId == animeId的图片
+    let p1 = new Promise((resolve, reject)=>{
+        getGraphicInfo(gInfoPath, gInfoArr=>{
+            resolve(gInfoArr);
+        });
+    });
+    
+
+    Promise.all([p0, p1]).then(dataList=>{
+        let animeId = dataList[0];
+        let gInfoArr = dataList[1];
+        let paletteGraphicInfo = null;
+
+        // 先判断gInfoArr.lastNode 是否为隐藏调色板文件, 如果不是, 再遍历gInfoArr, 找到mapId == animeId的图片
+        if(gInfoArr.lastNode.mapId == animeId){
+            paletteGraphicInfo = gInfoArr.lastNode;
+        }else{
+            for(let key in gInfoArr){
+                let _gInfo = gInfoArr[key];
+                if(_gInfo.mapId == animeId){
+                    paletteGraphicInfo = _gInfo;
+                    break;
+                }
+            }
+        }
+
+        if(!paletteGraphicInfo){
+            log(`未找到[${animeId}]动画的隐藏调色板`);
+            callback(false);
+            return;
+        }
+
+        // 2. 读取g文件, 获取调色板数据
+        let gBuffer = fs.readFileSync(gPath);
+        let paletteGBuffer = gBuffer.slice(paletteGraphicInfo.addr, paletteGraphicInfo.addr + paletteGraphicInfo.imgSize);
+        let paletteGraphic = new Graphic(paletteGBuffer);
+        let cgp = paletteGraphic.cgp;
+        let ver = paletteGraphic.version;
+        let pad = paletteGraphic.pad;
+        // console.log(cgp, {ver}, {pad});
+        
+        if(type == 0){
+            // 修复为自带调色板模式
+            // 3. 批量更新graphic中的version, pad, 插入palSize, 插入cgp.buffer, 同时更新gInfo文件中的addr, imgSize, 最后删除gInfo文件中的调色板图片信息和g文件中的调色板图片
+            let gInfoBuffer = fs.readFileSync(gInfoPath);
+            let finalGInfoArr = [];
+            let finalGArr = [];
+            let nextAddr = 0;
+            let len = Math.floor(gInfoBuffer.length / 40);
+            for(let i=0; i<len; i++){
+                // 这里用slice截取的buffer, 在第一次修改后, 因为修改了数据长度, 所以后面截取的数据地址会发生偏移, 导致数据错误
+                let _gInfoBuffer = gInfoBuffer.slice(i*40, i*40+40);
+                let _gInfo = new GraphicInfo(_gInfoBuffer, i);
+                if(_gInfo.mapId !== animeId){
+                    let startAddr = _gInfo.addr;
+                    let endAddr = _gInfo.addr + _gInfo.imgSize;
+                    let _gBuffer = gBuffer.slice(startAddr, endAddr);
+                    let _graphic = new Graphic(Buffer.from(_gBuffer));
+                    _graphic.version = ver;
+                    _graphic.pad = pad;
+                    _graphic.cgp = cgp;
+                    finalGArr.push(_graphic.buffer);
+                    _gInfo.addr = nextAddr;
+                    _gInfo.imgSize = _graphic.buffer.length;
+                    nextAddr += _graphic.buffer.length;
+                    finalGInfoArr.push(_gInfo.buffer);
+                }else{
+                    // 隐藏调色板图片信息, 抛弃
+                }
+            }
+
+            let dirName = Path.dirname(gInfoPath);
+            // 创建selfPal文件夹
+            let newPath = Path.join(dirName, 'selfPal');
+            fs.mkdirSync(newPath);
+            let gInfoFileName = Path.join(newPath, Path.basename(gInfoPath));
+            let gFileName = Path.join(newPath, Path.basename(gPath));
+            let aInfoFileName = Path.join(newPath, Path.basename(aInfoPath));
+            let aFileName = Path.join(newPath, Path.basename(aPath));
+
+            // 写入gInfo文件
+            let finalGInfoBuffer = Buffer.concat(finalGInfoArr);
+            fs.writeFileSync(gInfoFileName, finalGInfoBuffer);
+
+            // 写入g文件
+            let finalGBuffer = Buffer.concat(finalGArr);
+            fs.writeFileSync(gFileName, finalGBuffer);
+
+            // 复制animeInfo文件
+            fs.copyFileSync(aInfoPath, aInfoFileName);
+            // 复制anime文件
+            fs.copyFileSync(aPath, aFileName);
+
+            callback(true);
+        }else{
+            // TODO: 修复为全局调色板模式
+            callback(true);
+        }
+    });
+}
+
 
 
 // 以下为测试数据
@@ -1052,6 +1176,24 @@ const tfGPath = './bin/TF/bin/Puk3/Graphic_PUK3_2.bin';
 const tfAInfoPath = './bin/TF/bin/Puk3/AnimeInfo_PUK3_2.bin';
 const tfAPath = './bin/TF/bin/Puk3/Anime_PUK3_2.bin';
 
+const RootPath = 'D:/MLTools/图档';
+
+repairPalette({
+    aInfoPath: `${RootPath}/104905/AnimeInfo_104905_GP.bin`,
+    aPath: `${RootPath}/104905/Anime_104905_GP.bin`,
+    gInfoPath: `${RootPath}/104905/GraphicInfo_104905_GP.bin`,
+    gPath: `${RootPath}/104905/Graphic_104905_GP.bin`
+}, 0 , ()=>{
+
+});
+
+
+
+
+
+
+
+
 
 // graphic文件解密
 // const tarGPath = './output/108299/graphic/Graphic_108299_230505.bin';
@@ -1065,21 +1207,21 @@ const tfAPath = './bin/TF/bin/Puk3/Anime_PUK3_2.bin';
 
 
 
-const tarGPath = './output/108303/graphic/Graphic_108303_0.bin';
-let graphic = new Graphic(fs.readFileSync(tarGPath));
+// const tarGPath = './output/108303/graphic/Graphic_108303_0.bin';
+// let graphic = new Graphic(fs.readFileSync(tarGPath));
 
 // let cgp = graphic.cgp;
-let decodeImgData = graphic.decode();
-fs.writeFileSync('./decodeImgData.bin', decodeImgData);
+// let decodeImgData = graphic.decode();
+// fs.writeFileSync('./decodeImgData.bin', decodeImgData);
 // console.log('cgp.bgrBuffer.length',cgp.bgrBuffer.length);
 // fs.writeFileSync('./color.act', cgp.bgrBuffer);
-// // console.log(cgp.bgrBuffer);
-// // console.log(cgp.bgra);
-// // console.log(cgp.bgraBuffer);
+// console.log(cgp.bgrBuffer);
+// console.log(cgp.bgra);
+// console.log(cgp.bgraBuffer);
 
-graphic.createBMP('./test2.bmp', [0,0,0,0], null, ()=>{
-    console.log('./test2.bmp');
-});
+// graphic.createBMP('./test2.bmp', [0,0,0,0], null, ()=>{
+//     console.log('./test2.bmp');
+// });
 
 
 
@@ -1346,4 +1488,4 @@ graphic.createBMP('./test2.bmp', [0,0,0,0], null, ()=>{
 // NOTE: _2版本修复为把隐藏调色板去掉, 使用全局调色板, 因此图档文件变小 ??? 
 // NOTE: _3版本修复为把动画的隐藏调色板加到了每张图片中, 因此图档文件变大
 // NOTE: 群友[無憂無慮]提示转全局后颜色变少，压缩后就更小了, RD版本02或03的才带独立调色板，00或01没有，使用全局调色板，就是那些cgp文件; 但RD01的也可能是使用隐藏调色板，由anime里的调色板号决定，或者用动画ID查找; puk后的图档大部分都是隐藏调色板; 提取为全局或独立调色就不需要; 调色板和图片索引数据一起压缩了; 一般是768字节，有些调色板长度不足768; 
-// NOTE: 群友[fantastic]: 文件头有数据长度和调色板长度, 解壓後到字節數滿足為止, 就是調色板數據; 不用管解壓到哪裡 反正解壓到字節滿足為止
+// NOTE: 群友[fantastic]: 文件头有数据长度和调色板长度, 解壓後到字節數滿足為止, 就是調色板數據; 不用管解壓到哪裡 反正解壓到字節滿足為止     

@@ -11,6 +11,8 @@
 
 const fs = require('fs');
 
+
+
 Buffer.prototype.insert = function (addr, hex) {
     let oriHex = this;
     let part0 = oriHex.slice(0, addr);
@@ -18,6 +20,10 @@ Buffer.prototype.insert = function (addr, hex) {
     Buffer.concat([part0, hex, part1]);
 }
 
+
+/**
+ * 图片类
+ */
 class G {
     constructor(infoBuffer, dataBuffer) {
         this.graphicInfo = new GraphicInfo(infoBuffer);
@@ -25,6 +31,10 @@ class G {
     }
 }
 
+
+/**
+ * 图片信息类
+ */
 class GraphicInfo {
     /**
      * 创建图片信息对象
@@ -201,6 +211,10 @@ class GraphicInfo {
     }
 }
 
+
+/**
+ * 图片数据类
+ */
 class Graphic {
     /**
      * 创建图片数据对象
@@ -228,21 +242,21 @@ class Graphic {
     }
 
     get version() {
-        return this.buffer.slice(2, 3).readIntLE(0, 1);
+        return this.buffer.slice(2, 3).readUInt8(0);
     }
 
     set version(num) {
-        this.buffer.slice(2, 3).writeIntLE(num, 0, 1);
+        this.buffer.slice(2, 3).writeUInt8(num, 0);
         return this.buffer.slice(2, 3).readIntLE(0, 1);
     }
 
     get pad() {
-        return this.buffer.slice(3, 4).readIntLE(0, 1);
+        return this.buffer.slice(3, 4).readUInt8(0);
     }
 
     set pad(num) {
-        this.buffer.slice(3, 4).writeIntLE(num, 0, 1);
-        return this.buffer.slice(3, 4).readIntLE(0, 1);
+        this.buffer.slice(3, 4).writeUInt8(num, 0);
+        return this.buffer.slice(3, 4).readUInt8(0);
     }
 
     get imgWidth() {
@@ -314,7 +328,7 @@ class Graphic {
         // 将this.palSize设置为cgp.bgrBuffer.length
         this.palSize = cgp.bgrBuffer.length;
         // 将this.version设置为3(3乐园之卵后开始自带调色板)
-        this.version = 3;
+        // this.version = 3;
         // 将this.imgSize设置为this.imgSize+this.palSize
         this.imgSize = this.imgSize + this.palSize;
     }
@@ -371,7 +385,7 @@ class Graphic {
         let size = graphic.imgSize;
         let pOffset = graphic.pOffset;
 
-        let decodeBuf = new DecodeBuffer();
+        let decodeBuf = new BufferExt();
 
         // 当ver为偶数时, 即没有压缩, 直接返回数据
         if ((ver & 0x1) === 0) {
@@ -670,6 +684,10 @@ class Graphic {
     }
 }
 
+
+/**
+ * 动画类
+ */
 class A {
     constructor(infoBuffer, dataBuffer) {
         this.animeInfo = new AnimeInfo(infoBuffer);
@@ -677,6 +695,10 @@ class A {
     }
 }
 
+
+/**
+ * 动画信息类
+ */
 class AnimeInfo {
     /**
      * 创建动画信息对象
@@ -729,6 +751,10 @@ class AnimeInfo {
     }
 }
 
+
+/**
+ * 动画数据类
+ */
 class Anime {
     /**
      * 创建动画数据对象
@@ -775,6 +801,10 @@ class Anime {
     }
 }
 
+
+/**
+ * 动作类
+ */
 class Action {
     /**
      * 创建动作类
@@ -837,6 +867,10 @@ class Action {
     }
 }
 
+
+/**
+ * 帧类
+ */
 class Frame {
     /**
      * 创建帧对象
@@ -857,19 +891,28 @@ class Frame {
     }
 }
 
-class DecodeBuffer {
-    constructor(width, height) {
+
+/**
+ * Buffer扩展类
+ */
+class BufferExt {
+    constructor(size) {
         this.buffer = Buffer.alloc(0);
     }
 
-    write(hex) {
-        this.buffer = Buffer.concat([this.buffer, hex]);
+    /**
+     * 追加写入hex
+     * @param {Buffer} buffer 被写入的buffer 
+     */
+    write(buffer) {
+        this.buffer = Buffer.concat([this.buffer, buffer]);
     }
 
     get length() {
         return this.buffer.length;
     }
 }
+
 
 // 游戏指定的调色板0-15 BGRA
 const g_c0_15 = [
@@ -891,6 +934,7 @@ const g_c0_15 = [
     [0x28, 0xe1, 0x28]
 ];
 
+
 // 游戏指定的调色板240-255 BGRA
 const g_c240_255 = [
     [0xf5, 0xc3, 0x96],
@@ -911,6 +955,10 @@ const g_c240_255 = [
     [0xff, 0xff, 0xff]
 ];
 
+
+/**
+ * 调色板类
+ */
 class Cgp {
     /**
      * 调色板类
@@ -1020,6 +1068,7 @@ class Cgp {
     }
 }
 
+
 const CGPMAP = new Map();
 cgpInit();
 function cgpInit() {
@@ -1032,4 +1081,5 @@ function cgpInit() {
     CGPMAP.length = cgpList.length;
 }
 
-module.exports = { G, GraphicInfo, Graphic, A, AnimeInfo, Anime, Action, Frame, DecodeBuffer, Cgp }
+
+module.exports = { G, GraphicInfo, Graphic, A, AnimeInfo, Anime, Action, Frame, DecodeBuffer: BufferExt, Cgp }
