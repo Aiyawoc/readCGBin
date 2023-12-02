@@ -314,7 +314,7 @@ class Graphic {
         // 获取图片自带调色板
         if (this.palSize) {
             let cgpHex = this.buffer.slice(this.buffer.length - this.palSize, this.buffer.length);
-            console.log('cgpHex: ', cgpHex.length, cgpHex.length / 3);
+            // console.log('cgpHex: ', cgpHex.length, cgpHex.length / 3);
             let cgp = new Cgp(cgpHex);
             return cgp;
         }
@@ -862,7 +862,7 @@ class Action {
     }
 
     createGIF(callback) {
-        // TODO: 将本动作生成GIF
+        // TODO: 将本动作生成GIF, 使用gifencoder: https://github.com/eugeneware/gifencoder
 
     }
 }
