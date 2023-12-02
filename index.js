@@ -336,10 +336,7 @@ function getAnimeData(path, info, endAddr, callback) {
 
         let addr = info.addr;
         endAddr = endAddr || data.length;
-        // console.log({addr,endAddr});
         let animeDataHex = data.slice(addr, endAddr);
-        console.log(animeDataHex.length);
-        // console.log(animeDataHex.length);
         let anime = new Anime(animeDataHex);
         callback(anime);
     });
@@ -513,7 +510,7 @@ function getFileList(path, start = null, end = null, callback) {
  * @param {Function} callback 回调函数
  */
 function splitAnimeById(pathList, animeId, callback) {
-    log('======= 任务开始 =======');
+    log('======= 分割任务开始 =======');
     readCGInfoFile(pathList, infoDataList => {
         let GInfoArr = infoDataList[0];
         let AInfoArr = infoDataList[1];
@@ -528,7 +525,7 @@ function splitAnimeById(pathList, animeId, callback) {
             if (AInfoArr[animeId + 1]) {
                 endAddr = AInfoArr[animeId + 1].addr;
             }
-            // console.log({targetAnimeInfo});
+
             getAnimeData(pathList.animePath, targetAnimeInfo, endAddr, animeData => {
                 log(`读取Anime文件完成, 共需要[${animeData.imgList.length}]张图片, 开始查找图片信息文件`);
 
@@ -549,13 +546,18 @@ function splitAnimeById(pathList, animeId, callback) {
 
                     let gFileBuffer = fs.readFileSync(pathList.graphicPath);
                     let imgNumDictionary = {}; //图片编号字典, 用于记录图片的新编号, key:原编号, value:新编号
+                    let offsetAddr = 0; //记录图片数据的偏移地址
                     for(let i=0;i<needImgInfoArr.length;i++){
                         let _gInfo = needImgInfoArr[i];
-                        // 更新图片数据中的图片编号
-                        _gInfo.imgNum = i;
+                        
                         imgNumDictionary[_gInfo.imgNum] = i;
                         let _g = new Graphic(gFileBuffer.slice(_gInfo.addr, _gInfo.addr + _gInfo.imgSize));
 
+                        // 更新图片信息中的图片编号
+                        _gInfo.imgNum = i;
+                        // 更新图片信息中的addr
+                        _gInfo.addr = offsetAddr;
+                        offsetAddr += _g.buffer.length;
                         writeGInfoArr.push(_gInfo.buffer);
                         writeGArr.push(_g.buffer);
                     }
@@ -572,7 +574,7 @@ function splitAnimeById(pathList, animeId, callback) {
                     fs.writeFileSync(`./output/${nameSpace}/Graphic_${nameSpace}.bin`, Buffer.concat(writeGArr));
                     fs.writeFileSync(`./output/${nameSpace}/AnimeInfo_${nameSpace}.bin`, targetAnimeInfo.buffer);
                     fs.writeFileSync(`./output/${nameSpace}/Anime_${nameSpace}.bin`, animeData.buffer);
-                    log('======= 任务完成 =======');
+                    log('======= 分割任务完成 =======');
                     callback(`./output/${nameSpace}/`);
                 });
             });
