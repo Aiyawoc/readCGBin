@@ -21,13 +21,27 @@ Buffer.prototype.insert = function (addr, hex) {
 }
 
 
-/**
- * 图片类
+/** TODO: 待验证图片文件类
+ * 图片文件类
  */
 class G {
-    constructor(infoBuffer, dataBuffer) {
-        this.graphicInfo = new GraphicInfo(infoBuffer);
-        this.graphic = new Graphic(dataBuffer);
+    constructor(graphicInfoBuffer, graphicBuffer) {
+        this.graphicInfoBuffer = graphicInfoBuffer;
+        this.graphicBuffer = graphicBuffer;
+        this.data = {};
+        
+        if(this.graphicInfoBuffer.length % 40 !== 0){
+            throw new Error('graphicInfo文件长度异常');
+        }
+
+        this.length = this.graphicInfoBuffer.length / 40;
+        for(let i=0; i<this.length; i++){
+            let graphicInfo = new GraphicInfo(this.graphicInfoBuffer.slice(i*40, (i+1)*40), i);
+            let graphic = new Graphic(this.graphicBuffer.slice(gInfo.addr, gInfo.addr + gInfo.imgSize));
+            let data = {graphicInfo, graphic};
+            this.data[gInfo.imgNum] = data;
+            this.lastNode = data;
+        }
     }
 }
 
@@ -685,13 +699,28 @@ class Graphic {
 }
 
 
-/**
- * 动画类
+/** TODO: 动画文件类
+ * 动画文件类
  */
 class A {
     constructor(infoBuffer, dataBuffer) {
-        this.animeInfo = new AnimeInfo(infoBuffer);
-        this.anime = new Anime(dataBuffer);
+        this.animeInfoBuffer = infoBuffer;
+        this.animeBuffer = dataBuffer;
+
+        if(this.animeInfoBuffer.length % 12 !== 0){
+            throw new Error('animeInfoBuffer文件长度异常');
+        }
+
+        this.length = this.animeInfoBuffer.length / 12;
+        this.data = {};
+
+        for(let i=0; i<this.length; i++){
+            let animeInfo = new AnimeInfo(this.animeInfoBuffer.slice(i*12, (i+1)*12), i);
+            let anime = new Anime(this.animeBuffer.slice(animeInfo.addr, animeInfo.addr + animeInfo.animeCount * 10));
+            let data = {animeInfo, anime};
+            this.data[animeInfo.animeId] = data;
+            this.lastNode = data;
+        }
     }
 }
 
