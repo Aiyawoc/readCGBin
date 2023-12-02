@@ -351,6 +351,7 @@ function getAnimeData(path, info, endAddr, callback) {
  * @param {Function} cb 回调函数
  */
 function mkDataDir(nameSpace, cb) {
+    nameSpace = `${nameSpace}`;
     let dirList = fs.readdirSync('./output');
     let has = dirList.includes(nameSpace);
     if(has){
@@ -547,12 +548,24 @@ function splitAnimeById(pathList, animeId, callback) {
                     let writeGArr = [];
 
                     let gFileBuffer = fs.readFileSync(pathList.graphicPath);
+                    let imgNumDictionary = {}; //图片编号字典, 用于记录图片的新编号, key:原编号, value:新编号
                     for(let i=0;i<needImgInfoArr.length;i++){
                         let _gInfo = needImgInfoArr[i];
+                        // 更新图片数据中的图片编号
+                        _gInfo.imgNum = i;
+                        imgNumDictionary[_gInfo.imgNum] = i;
                         let _g = new Graphic(gFileBuffer.slice(_gInfo.addr, _gInfo.addr + _gInfo.imgSize));
-                        // console.log(_g.buffer);
+
                         writeGInfoArr.push(_gInfo.buffer);
                         writeGArr.push(_g.buffer);
+                    }
+                    
+                    // 更新动画数据中的图片编号
+                    for(let i=0;i<animeData.actions.length;i++){
+                        for(let j=0;j<animeData.actions[i].frames.length;j++){
+                            let _frame = animeData.actions[i].frames[j];
+                            _frame.imgNum = imgNumDictionary[_frame.imgNum];
+                        }
                     }
 
                     fs.writeFileSync(`./output/${nameSpace}/GraphicInfo_${nameSpace}.bin`, Buffer.concat(writeGInfoArr));
