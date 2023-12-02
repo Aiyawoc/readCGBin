@@ -346,72 +346,19 @@ function getAnimeData(path, info, endAddr, callback) {
 }
 
 
-/** DONE: 在output目录中创建目标数据的目录
+/** DONE: 在output中创建目标数据的目录
  * @param {Sting} nameSpace 目标数据命名空间
  * @param {Function} cb 回调函数
  */
 function mkDataDir(nameSpace, cb) {
-    fs.readdir('./output', (err, dirList) => {
-        // log(dirList);
-        if (dirList.includes(nameSpace)) {
-            fs.readdir(`./output/${nameSpace}`, (err, dirList2) => {
-                let pArr = [];
-
-                if (!dirList2.includes('graphicInfo')) {
-                    let p0 = new Promise((resolve, reject) => {
-                        fs.mkdir(`./output/${nameSpace}/graphicInfo`, err => {
-                            resolve();
-                        });
-                    });
-                    pArr.push(p0);
-                }
-
-                if (!dirList2.includes('graphic')) {
-                    let p1 = new Promise((resolve, reject) => {
-                        fs.mkdir(`./output/${nameSpace}/graphic`, err => {
-                            resolve();
-                        });
-                    });
-                    pArr.push(p1);
-                }
-
-                if (!dirList2.includes('animeInfo')) {
-                    let p2 = new Promise((resolve, reject) => {
-                        fs.mkdir(`./output/${nameSpace}/animeInfo`, err => {
-                            resolve();
-                        });
-                    });
-                    pArr.push(p2);
-                }
-
-                if (!dirList2.includes('anime')) {
-                    let p3 = new Promise((resolve, reject) => {
-                        fs.mkdir(`./output/${nameSpace}/anime`, err => {
-                            resolve();
-                        });
-                    });
-                    pArr.push(p3);
-                }
-
-                Promise.all(pArr).then(() => {
-                    cb();
-                });
-
-            });
-        } else {
-            fs.mkdir(`./output/${nameSpace}`, err => {
-                fs.mkdir(`./output/${nameSpace}/graphicInfo`, err => {
-                    fs.mkdir(`./output/${nameSpace}/graphic`, err => {
-                        fs.mkdir(`./output/${nameSpace}/animeInfo`, err => {
-                            fs.mkdir(`./output/${nameSpace}/anime`, err => {
-                                cb();
-                            });
-                        });
-                    });
-                });
-            });
-        }
-    });
+    let dirList = fs.readdirSync('./output');
+    let has = dirList.includes(nameSpace);
+    if(has){
+        cb();
+    }else{
+        fs.mkdirSync(`./output/${nameSpace}`);
+        cb();
+    }
 }
 
 
@@ -564,7 +511,7 @@ function getFileList(path, start = null, end = null, callback) {
  * @param {Number} animeId 指定动画ID
  * @param {Function} callback 回调函数
  */
-function getAnimeById(pathList, animeId, callback) {
+function splitAnimeById(pathList, animeId, callback) {
     log('======= 任务开始 =======');
     readCGInfoFile(pathList, infoDataList => {
         let GInfoArr = infoDataList[0];
@@ -572,23 +519,15 @@ function getAnimeById(pathList, animeId, callback) {
 
         log(`开始查找[${animeId}]的动画数据`);
 
-        let targetAnimeInfo, targetIdx;
-        
-        for (let i = 0; i < AInfoArr.length; i++) {
-            if (AInfoArr[i].animeId == animeId) {
-                targetAnimeInfo = AInfoArr[i];
-                targetIdx = i;
-                break;
-            }
-        }
+        let targetAnimeInfo = AInfoArr[animeId]; 
 
         if (targetAnimeInfo) {
-
+            // 获取下一条动画数据的addr作为endAddr, 如果没有, 则设为null(即文件尾)
             let endAddr = null;
-            if (targetIdx < AInfoArr.length - 1) {
-                endAddr = AInfoArr[targetIdx + 1].addr;
+            if (AInfoArr[animeId + 1]) {
+                endAddr = AInfoArr[animeId + 1].addr;
             }
-
+            // console.log({targetAnimeInfo});
             getAnimeData(pathList.animePath, targetAnimeInfo, endAddr, animeData => {
                 log(`读取Anime文件完成, 共需要[${animeData.imgList.length}]张图片, 开始查找图片信息文件`);
 
@@ -604,44 +543,24 @@ function getAnimeById(pathList, animeId, callback) {
                 log(`读取graphicInfo完成, 共有[${needImgInfoArr.length}]条图片数据待处理, 开始分割图片数据`);
                 GInfoList = Array.from(needImgInfoArr);
                 mkDataDir(nameSpace, () => {
+                    let writeGInfoArr = [];
+                    let writeGArr = [];
 
-                    getGraphicDataList(pathList.graphicPath, needImgInfoArr, nameSpace, true, () => {
-                        log('图片分割完成, 开始分割动画信息文件');
+                    let gFileBuffer = fs.readFileSync(pathList.graphicPath);
+                    for(let i=0;i<needImgInfoArr.length;i++){
+                        let _gInfo = needImgInfoArr[i];
+                        let _g = new Graphic(gFileBuffer.slice(_gInfo.addr, _gInfo.addr + _gInfo.imgSize));
+                        // console.log(_g.buffer);
+                        writeGInfoArr.push(_gInfo.buffer);
+                        writeGArr.push(_g.buffer);
+                    }
 
-                        fs.open(`./output/${nameSpace}/animeInfo/animeInfo_${nameSpace}.bin`, 'w+', (err, fd) => {
-                            fs.write(fd, targetAnimeInfo.buffer, err => {
-                                log('动画信息文件分割完成, 开始分割动画文件');
-                                fs.close(fd);
-
-                                let pArr = [];
-                                for (let i = 0; i < animeData.actions.length; i++) {
-                                    let _p = new Promise((resolve, reject) => {
-                                        let _action = animeData.actions[i];
-                                        let fileName = `anime_${nameSpace}_${i}.bin`;
-                                        fs.open(`./output/${nameSpace}/anime/${fileName}`, 'w+', (err, fd) => {
-                                            fs.write(fd, _action.buffer, err => {
-                                                fs.close(fd);
-                                                if (err) {
-                                                    log(`./output/${nameSpace}/anime/${fileName} 写入失败`);
-                                                    reject();
-                                                } else {
-                                                    log(`./output/${nameSpace}/anime/${fileName} 写入完成`);
-                                                    resolve();
-                                                }
-                                            });
-                                        });
-                                    });
-
-                                    pArr.push(_p);
-                                }
-
-                                Promise.all(pArr).then(() => {
-                                    log('======= 任务完成 =======');
-                                    callback();
-                                });
-                            });
-                        });
-                    });
+                    fs.writeFileSync(`./output/${nameSpace}/GraphicInfo_${nameSpace}.bin`, Buffer.concat(writeGInfoArr));
+                    fs.writeFileSync(`./output/${nameSpace}/Graphic_${nameSpace}.bin`, Buffer.concat(writeGArr));
+                    fs.writeFileSync(`./output/${nameSpace}/AnimeInfo_${nameSpace}.bin`, targetAnimeInfo.buffer);
+                    fs.writeFileSync(`./output/${nameSpace}/Anime_${nameSpace}.bin`, animeData.buffer);
+                    log('======= 任务完成 =======');
+                    callback(`./output/${nameSpace}/`);
                 });
             });
         } else {
@@ -1187,10 +1106,10 @@ const aPathKY = './bin/KYML/Anime_PUK3_2.bin';
 const gInfoPathV3 = './bin/V3/GraphicInfoV3_19.bin';
 const gPathV3 = './bin/V3/GraphicV3_19.bin';
 
-const gInfoPathEX = './bin/GraphicInfo_Joy_EX_86.bin';
-const gPathEX = './bin/Graphic_Joy_EX_86.bin';
-const aInfoPathEX = './bin/AnimeInfo_Joy_EX_70.bin';
-const aPathEX = './bin/Anime_Joy_EX_70.bin';
+const gInfoPathEX = './bin/EX/GraphicInfo_Joy_EX_86.bin';
+const gPathEX = './bin/EX/Graphic_Joy_EX_86.bin';
+const aInfoPathEX = './bin/EX/AnimeInfo_Joy_EX_70.bin';
+const aPathEX = './bin/EX/Anime_Joy_EX_70.bin';
 
 const tfGInfoPath = './bin/TF/bin/Puk3/GraphicInfo_PUK3_2.bin';
 const tfGPath = './bin/TF/bin/Puk3/Graphic_PUK3_2.bin';
@@ -1288,15 +1207,15 @@ const RootPath = 'D:/MLTools/图档';
 
 
 
-// EXP: 从目标文件中拆分id为108303的数据
-// getAnimeById({
-//     animeInfoPath: './bin/108303_3/AnimeInfo_PUK2_4.bin',
-//     animePath: './bin/108303_3/Anime_PUK2_4.bin',
-//     graphicInfoPath: './bin/108303_3/GraphicInfo_PUK2_2.bin',
-//     graphicPath: './bin/108303_3/Graphic_PUK2_2.bin'
-// }, 108303, data => {
-//     log('==== 读取任务完成 ====');
-// });
+// EXP: 从目标文件中拆分id为108301的数据
+splitAnimeById({
+    animeInfoPath: aInfoPathEX,
+    animePath: aPathEX,
+    graphicInfoPath: gInfoPathEX,
+    graphicPath: gPathEX
+}, 108301, data => {
+    log('==== 读取任务完成 ====');
+});
 
 
 

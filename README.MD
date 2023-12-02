@@ -22,7 +22,7 @@
 
 
 ## 方法:
-#### getAnimeById 通过动画编号拆分数据到独立数据文件
+#### splitAnimeById 通过动画编号拆分数据到独立数据文件
 #### addAnimeById 将指定编号的独立数据文件合并到图档, 独立数据文件来源于 getAnimeById 方法
 #### removeAnimeById 删除指定Id的动画档及图档
 #### <br><br><br>
