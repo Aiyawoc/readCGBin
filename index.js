@@ -61,12 +61,10 @@ function readCGInfoFile(pathList, callback) {
 /** DONE: 读取graphicInfo文件
  * @param {String} path gInfo文件地址
  * @param {Function} callback 回调函数, 返回graphicInfoArray
+ * @returns {Object} {length: 长度, 0: 第一条数据, lastNode: 最后一条数据, [imgNum]: GraphicInfo对象}
  */
 function getGraphicInfo(path, callback) {
     fs.readFile(path, (err, data) => {
-        let infoArr = {};
-        infoArr.length = 0;
-
         if (err) {
             log(`读取GraphicInfo文件[${path}]失败, ${JSON.stringify(err)}`);
             callback(infoArr);
@@ -80,10 +78,16 @@ function getGraphicInfo(path, callback) {
         }
 
         let len = data.length / 40;
+        let infoArr = {};
+        infoArr.length = 0;
 
         for (let i = 0; i < len; i++) {
             let _buffer = data.slice(i * 40, i * 40 + 40);
             let gInfo = new GraphicInfo(_buffer, i);
+            if(i === 0){
+                infoArr[0] = gInfo;
+            }
+
             infoArr[gInfo.imgNum] = gInfo;
             infoArr.lastNode = gInfo;
         }
@@ -274,7 +278,8 @@ function saveGraphicData(imgNum, data, nameSpace, callback) {
 
 /** DONE: 读取AnimeInfo文件
  * @param {String} path AnimeInfo文件路径
- * @param {Function} callback 回调函数, 返回AnimeInfo对象数组
+ * @param {Function} callback 回调函数, 返回AnimeInfoList对象
+ * @returns {Object} {length: 长度, 0: 第一条数据, lastNode: 最后一条数据, [animeId]: AnimeInfo对象}
  */
 function  getAnimeInfo(path, callback) {
     fs.readFile(path, (err, data) => {
@@ -291,13 +296,22 @@ function  getAnimeInfo(path, callback) {
                 return;
             }
 
-            let infoArr = [];
+            let infoArr = {};
+            infoArr.length = 0;
             let len = data.length / 12;
 
             for (let i = 0; i < len; i++) {
                 let _buffer = data.slice(i * 12, i * 12 + 12);
-                infoArr.push(new AnimeInfo(_buffer, i));
+                let animeInfo = new AnimeInfo(_buffer, i);
+                if(i === 0){
+                    infoArr[0] = animeInfo;
+                }
+
+                infoArr[animeInfo.animeId] = animeInfo;
+                infoArr.lastNode = animeInfo;
             }
+
+            infoArr.length = len;
 
             callback(infoArr);
         }else{
@@ -728,7 +742,7 @@ function addAnimeById(animeId, tarPath, callback) {
                 let pGetTarAInfo = new Promise((resolve, reject)=>{
                     getAnimeInfo(tarAInfoPath, aInfoArr=>{
                         if(aInfoArr.length){
-                            let last = aInfoArr[aInfoArr.length - 1];
+                            let last = aInfoArr.lastNode;
                             resolve(last.animeId+1);
                         }else{
                             resolve(0);
@@ -839,16 +853,10 @@ function removeAnimeById(animeId, tarPath, delGraphic=true, callback){
     let {aInfoPath, aPath} = tarPath;
     getAnimeInfo(aInfoPath, aInfoArr=>{
         let curIdx = 0, curAInfo = null;
-        for(let i=0;i<aInfoArr.length;i++){
-            let _aInfo = aInfoArr[i];
-            if(_aInfo.animeId == animeId){
-                curIdx = i;
-                curAInfo = _aInfo;
-                break;
-            }
-        }
-
-        if(!curAInfo){
+        if(aInfoArr[animeId]){
+            curAInfo = aInfoArr[animeId];
+            curIdx = animeId;
+        } else{
             log(`[${aInfoPath}]中不存在[${animeId}]动画信息, 退出`);
             callback();
             return;
@@ -861,7 +869,7 @@ function removeAnimeById(animeId, tarPath, delGraphic=true, callback){
         
         // 2. 获取目标动画的下一条动画在a文件中的addr, 作为截止addr, 如果该动画是最后一条, 则截止addr设为null, 即为文件尾
         let endAddr = null;
-        if(curIdx+1 < aInfoArr.length){
+        if(aInfoArr[curIdx+1]){
             endAddr = aInfoArr[curIdx+1].addr;
         }
 
