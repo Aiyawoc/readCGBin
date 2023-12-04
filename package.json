@@ -1,6 +1,6 @@
 {
   "name": "readcgbin",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CG图档工具core",
   "main": "index.js",
   "scripts": {
@@ -24,7 +24,7 @@
   "devDependencies": {
     "release-it": "^17.0.0"
   },
-  "publishConfig":{
+  "publishConfig": {
     "access": "public"
   }
 }
