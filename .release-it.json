@@ -1,0 +1,14 @@
+{
+    "github": {
+        "release": true
+    },
+    "git": {
+        "commitMessage": "Release: v${version}"
+    },
+    "plugins": {
+        "@release-it/conventional-changelog": {
+            "preset": "angular",
+            "infile": "CHANGELOG.md"
+        }
+    }
+}

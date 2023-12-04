@@ -1257,13 +1257,13 @@ const RootPath = 'D:/MLTools/图档';
 
 
 // EXP: 测试G类
-let gBuffer = fs.readFileSync('./bin/108303_3/Graphic_PUK2_2.bin');
-let gInfoBuffer = fs.readFileSync('./bin/108303_3/GraphicInfo_PUK2_2.bin');
-let g = new G(gInfoBuffer, gBuffer);
-g.setStartNum(1255);
-g.setOffsetAddr(5000);
-console.log(g.getDataByImgNum(1255));
-console.log(g.getDataByIndex(1));
+// let gBuffer = fs.readFileSync('./bin/108303_3/Graphic_PUK2_2.bin');
+// let gInfoBuffer = fs.readFileSync('./bin/108303_3/GraphicInfo_PUK2_2.bin');
+// let g = new G(gInfoBuffer, gBuffer);
+// g.setStartNum(1255);
+// g.setOffsetAddr(5000);
+// console.log(g.getDataByImgNum(1255));
+// console.log(g.getDataByIndex(1));
 
 
 
