@@ -1,13 +1,21 @@
 {
-  "name": "readcgbin",
+  "name": "@aiyawoc/read_cg_bin",
   "version": "1.0.0",
-  "description": "CG图档工具",
-  "main": "main.js",
+  "description": "CG图档工具core",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Aiyawoc",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aiyawoc/readCGBin.git"
+  },
   "license": "ISC",
+  "bugs": { 
+    "url": "https://github.com/Aiyawoc/readCGBin/issues"
+  },
+  "homepage": "https://github.com/Aiyawoc/readCGBin/blob/main/README.MD",
   "dependencies": {
     "log4js": "^6.9.1"
   }

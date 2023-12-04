@@ -17,7 +17,7 @@ function log(str, type='main'){
 }
 
 
-const { GraphicInfo, Graphic, AnimeInfo, Anime, Action, Frame } = require('./modules/base');
+const { GraphicInfo, Graphic, AnimeInfo, Anime, Action, Frame, G, A } = require('./modules/base');
 
 
 let GInfoList = []; //存储图片信息的全局变量, 在读取Info文件时清空
@@ -718,6 +718,28 @@ function addAnimeById(animeId, tarPath, callback) {
 }
 
 
+/** TODO: 将图档文件合并到目标文件中
+ * @param {Object} fromPath 待合并的图档文件路径 {aInfoPath, aPath, gInfoPath, gPath}
+ * @param {Object} tarPath 合并到的目标文件路径 {aInfoPath, aPath, gInfoPath, gPath}
+ * @param {Number} animeId 起始动画编号, 默认自动获取
+ * @param {Boolean} repairPal 是否修复pal文件, 默认不修复
+ * @param {Function} callback 回调函数
+ */
+function addAnimeToFile(fromPath, tarPath, animeId, repairPal=false, callback){
+    // 1. 读取目标文件中的aInfo, 获取最后一条动画的编号, 作为起始编号
+    // 2. 读取目标文件中的a文件, 获取最后一条动画的结束地址(文件长度), 作为起始地址
+    // 3. 读取目标文件中的gInfo, 获取最后一条图片的编号, 作为起始编号
+    // 4. 读取目标文件中的g文件, 获取最后一条图片的结束地址(文件长度), 作为起始地址
+    // 5. 将待合并的g文件, 追加到目标g文件中
+    // 6. 读取待合并的gInfo文件, 修改图片编号, 修改起始地址
+    // 7. 将待合并的gInfo文件, 追加到目标gInfo文件中
+    // 8. 读取待合并的aInfo文件, 修改动画编号, 修改起始地址
+    // 9. 将待合并的aInfo文件, 追加到目标aInfo文件中
+    // 10. 读取待合并的a文件, 修改图片编号
+    // 11. 将待合并的a文件, 追加到目标a文件中
+}
+
+
 /** DONE: 检查目标文件是否存在, 如果不存在, 则创建, 并返回相应需要的值
  * @param {Object} tarPath {tarAInfoPath, tarAPath, tarGInfoPath, tarGPath}
  * @param {Function} callback 回调函数
@@ -1223,26 +1245,25 @@ const RootPath = 'D:/MLTools/图档';
 
 
 // EXP: 从目标文件中拆分id为108301的数据
-splitAnimeById({
-    animeInfoPath: aInfoPathEX,
-    animePath: aPathEX,
-    graphicInfoPath: gInfoPathEX,
-    graphicPath: gPathEX
-}, 108301, data => {
-    log('==== 读取任务完成 ====');
-});
-
-
-
-// EXP: 从目标文件中拆分id为120099的数据
-// getAnimeById({
-//     animeInfoPath: aInfoPathKY,
-//     animePath: aPathKY,
-//     graphicInfoPath: gInfoPathKY,
-//     graphicPath: gPathKY
-// }, 120099, data => {
+// splitAnimeById({
+//     animeInfoPath: aInfoPathEX,
+//     animePath: aPathEX,
+//     graphicInfoPath: gInfoPathEX,
+//     graphicPath: gPathEX
+// }, 108301, data => {
 //     log('==== 读取任务完成 ====');
 // });
+
+
+
+// EXP: 测试G类
+let gBuffer = fs.readFileSync('./bin/108303_3/Graphic_PUK2_2.bin');
+let gInfoBuffer = fs.readFileSync('./bin/108303_3/GraphicInfo_PUK2_2.bin');
+let g = new G(gInfoBuffer, gBuffer);
+g.setStartNum(1255);
+g.setOffsetAddr(5000);
+console.log(g.getDataByImgNum(1255));
+console.log(g.getDataByIndex(1));
 
 
 

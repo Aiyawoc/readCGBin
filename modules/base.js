@@ -22,13 +22,18 @@ Buffer.prototype.insert = function (addr, hex) {
 
 
 /** TODO: 待验证图片文件类
- * 图片文件类
+ * 本类接收两个参数, 一个是图片信息文件, 一个是图片数据文件, 均为通过fs.readFileSync读取的十六进制数据
  */
 class G {
+    /**
+     * 实例化
+     * @param {Buffer} graphicInfoBuffer graphicInfo文件的十六进制数据
+     * @param {Buffer} graphicBuffer  graphic文件的十六进制数据
+     */
     constructor(graphicInfoBuffer, graphicBuffer) {
         this.graphicInfoBuffer = graphicInfoBuffer;
         this.graphicBuffer = graphicBuffer;
-        this.data = {};
+        this.data = new Map();
         
         if(this.graphicInfoBuffer.length % 40 !== 0){
             throw new Error('graphicInfo文件长度异常');
@@ -37,11 +42,62 @@ class G {
         this.length = this.graphicInfoBuffer.length / 40;
         for(let i=0; i<this.length; i++){
             let graphicInfo = new GraphicInfo(this.graphicInfoBuffer.slice(i*40, (i+1)*40), i);
-            let graphic = new Graphic(this.graphicBuffer.slice(gInfo.addr, gInfo.addr + gInfo.imgSize));
+            let graphic = new Graphic(this.graphicBuffer.slice(graphicInfo.addr, graphicInfo.addr + graphicInfo.imgSize));
             let data = {graphicInfo, graphic};
-            this.data[gInfo.imgNum] = data;
+            this.data.set(graphicInfo.imgNum, data);
             this.lastNode = data;
         }
+    }
+
+    /**
+     * 通过下标编号获取图片数据(类似数组)
+     * @param {Number} idx 下标编号
+     * @returns {Object} 图片数据 {graphicInfo, graphic}
+     */
+    getDataByIndex(idx){
+        let keys = Array.from(this.data.keys());
+        return this.data.get(keys[idx]);
+    }
+
+    /**
+     * 通过图片编号获取图片数据
+     * @param {Number} imgNum 图片编号
+     * @returns {Object} 图片数据 {graphicInfo, graphic}
+     */
+    getDataByImgNum(imgNum){
+        return this.data.get(imgNum);
+    }
+
+    /**
+     * 更新图片信息文件中的图片编号
+     * @param {Number} num 起始图片编号
+     * @returns {G}
+     */
+    setStartNum(num){
+        let tmpMap = new Map();
+        this.data.forEach((data, key)=>{
+            data.graphicInfo.imgNum = num + key;
+            tmpMap.set(num + key, data);
+        });
+
+        // 将map中的key全部更新为新的图片编号
+        this.data.clear();
+        this.data = tmpMap;
+
+        return this;
+    }
+
+    /**
+     * 更新图片信息文件中的图片数据起始地址
+     * @param {Number} offset 地址偏移量
+     * @returns {G}
+     */
+    setOffsetAddr(offset){
+        this.data.forEach((data, key)=>{
+            data.graphicInfo.addr += offset;
+        });
+
+        return this;
     }
 }
 
@@ -58,18 +114,18 @@ class GraphicInfo {
     constructor(buffer, idx = 0) {
         this.buffer = buffer;
         this.selfAddr = idx * 40;
-        // 0-3字节[LONG]为编号
-        // 4-7字节[DWORD]指明圖片在數據文件中的起始位置
-        // 8-11字节[DWORD]圖片數據塊的大小
-        // 12-15字节[LONG]偏移量X
-        // 16-19字节[LONG]偏移量Y
-        // 20-23字节[LONG]图片宽度
-        // 24-27字节[LONG]图片高度
-        // 28字节[BYTE]占地面积X
-        // 29字节[BYTE]占地面积Y
-        // 30字节[BYTE]用於地圖，0表示障礙物，1表示可以走上去
+        // 0-3字节[LONG]为编号 imgNum
+        // 4-7字节[DWORD]指明圖片在數據文件中的起始位置 addr
+        // 8-11字节[DWORD]圖片數據塊的大小 imgSize
+        // 12-15字节[LONG]偏移量X offsetX
+        // 16-19字节[LONG]偏移量Y offsetY
+        // 20-23字节[LONG]图片宽度 imgWidth
+        // 24-27字节[LONG]图片高度 imgHeight
+        // 28字节[BYTE]占地面积X areaX
+        // 29字节[BYTE]占地面积Y areaY
+        // 30字节[BYTE]用於地圖，0表示障礙物，1表示可以走上去 canMove
         // 31-35字节[BYTE]
-        // 36-39字节[LONG]地图编号, 非地圖單位的此項均為0
+        // 36-39字节[LONG]地图编号, 非地圖單位的此項均為0 mapId
     }
 
     /**
@@ -700,7 +756,7 @@ class Graphic {
 
 
 /** TODO: 动画文件类
- * 动画文件类
+ * 本类接收两个参数, 一个是动画信息文件, 一个是动画数据文件, 均为通过fs.readFileSync读取的十六进制数据
  */
 class A {
     constructor(infoBuffer, dataBuffer) {
