@@ -733,14 +733,14 @@ class Graphic {
             }
         }
 
+        let bgraBuffer = cgp.bgraBuffer;
+
         if (alphaColor) {
             // 如果传入了alphaColor, 则将调色板中第一组色值改为alphaColor的色值
             for (let i = 0; i < alphaColor.length; i++) {
                 bgraBuffer.writeUInt8(alphaColor[i], i);
             }
         }
-
-        let bgraBuffer = cgp.bgraBuffer;
 
         // 如果调色板长度小于1024(256色), win某些软件无法正常显示, 需补齐1024(256色)
         if(bgraBuffer.length < 1024){
