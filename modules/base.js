@@ -34,16 +34,16 @@ class G {
         this.graphicInfoBuffer = graphicInfoBuffer;
         this.graphicBuffer = graphicBuffer;
         this.data = new Map();
-        
-        if(this.graphicInfoBuffer.length % 40 !== 0){
+
+        if (this.graphicInfoBuffer.length % 40 !== 0) {
             throw new Error('graphicInfo文件长度异常');
         }
 
         this.length = this.graphicInfoBuffer.length / 40;
-        for(let i=0; i<this.length; i++){
-            let graphicInfo = new GraphicInfo(this.graphicInfoBuffer.slice(i*40, (i+1)*40), i);
+        for (let i = 0; i < this.length; i++) {
+            let graphicInfo = new GraphicInfo(this.graphicInfoBuffer.slice(i * 40, (i + 1) * 40), i);
             let graphic = new Graphic(this.graphicBuffer.slice(graphicInfo.addr, graphicInfo.addr + graphicInfo.imgSize));
-            let data = {graphicInfo, graphic};
+            let data = { graphicInfo, graphic };
             this.data.set(graphicInfo.imgNum, data);
             this.lastNode = data;
         }
@@ -54,7 +54,7 @@ class G {
      * @param {Number} idx 下标编号
      * @returns {Object} 图片数据 {graphicInfo, graphic}
      */
-    getDataByIndex(idx){
+    getDataByIndex(idx) {
         let keys = Array.from(this.data.keys());
         return this.data.get(keys[idx]);
     }
@@ -64,7 +64,7 @@ class G {
      * @param {Number} imgNum 图片编号
      * @returns {Object} 图片数据 {graphicInfo, graphic}
      */
-    getDataByImgNum(imgNum){
+    getDataByImgNum(imgNum) {
         return this.data.get(imgNum);
     }
 
@@ -73,9 +73,9 @@ class G {
      * @param {Number} num 起始图片编号
      * @returns {G}
      */
-    setStartNum(num){
+    setStartNum(num) {
         let tmpMap = new Map();
-        this.data.forEach((data, key)=>{
+        this.data.forEach((data, key) => {
             data.graphicInfo.imgNum = num + key;
             tmpMap.set(num + key, data);
         });
@@ -92,8 +92,8 @@ class G {
      * @param {Number} offset 地址偏移量
      * @returns {G}
      */
-    setOffsetAddr(offset){
-        this.data.forEach((data, key)=>{
+    setOffsetAddr(offset) {
+        this.data.forEach((data, key) => {
             data.graphicInfo.addr += offset;
         });
 
@@ -358,7 +358,7 @@ class Graphic {
 
     get palSize() {
         // TODO: 目前验证版本是否携带调色板是用的version & 2, 计算出来2跟3都是true, 但是3的图片是有调色板的, 2的图片有没有调色板需进一步验证
-        if (this.version & 2) {
+        if (this.version == 3) {
             return this.buffer.slice(16, 20).readIntLE(0, 4);
         }
         return 0;
@@ -366,7 +366,7 @@ class Graphic {
 
     set palSize(num) {
         // 如果原本有调色板, 则修改调色板长度, 如果原本没有调色板, 则需要插入调色板长度数据
-        if (this.version & 2) {
+        if (this.version == 3) {
             this.buffer.slice(16, 20).writeIntLE(num, 0, 4);
             return this.buffer.slice(16, 20).readIntLE(0, 4);
         }
@@ -392,7 +392,7 @@ class Graphic {
     }
 
     set cgp(cgp) {
-        // 设置图片自带调色板
+        // TODO: 设置图片自带调色板, 如果未自带调色板, 则添加到末尾, 如果已自带调色板, 则覆盖
         // 将cgp.bgrBuffer添加到this.buffer结尾
         this.buffer = Buffer.concat([this.buffer, cgp.bgrBuffer]);
         // 将this.palSize设置为cgp.bgrBuffer.length
@@ -411,7 +411,7 @@ class Graphic {
     }
 
     get imgData() {
-        if (this.version & 2) {
+        if (this.version == 3) {
             // 当有调色板数据时, 截取从20位开始, 到buffer.lenght-调色板大小
             return this.buffer.slice(20, this.buffer.length - this.palSize);
         }
@@ -426,7 +426,7 @@ class Graphic {
             let part1 = this.buffer.slice(this.buffer.length - this.palSize, this.buffer.length);
             this.buffer = Buffer.concat([part0, hex, part1]);
             return this;
-        }else{
+        } else {
             let part0 = this.buffer.slice(0, 16);
             this.buffer = Buffer.concat([part0, hex]);
         }
@@ -447,77 +447,171 @@ class Graphic {
         }
 
         let ver = graphic.version;
-        let pad = graphic.pad;
         let w = graphic.imgWidth;
         let h = graphic.imgHeight;
-        let palSize = graphic.palSize;
-        let buf = graphic.imgData;
         let size = graphic.imgSize;
-        let pOffset = graphic.pOffset;
+        let BG_COLOR = 0x00;
 
-        let decodeBuf = new BufferExt();
-
+        // NOTE: 将img数据连调色板一起解压, 直到decodeBuf.length >= w*h为止
+        // NOTE: version 0 1 2 3, 版本号为0|2时为未压缩数据,官方调色板; 为1时为压缩数据,官方调色板; 为3时为压缩数据,自带调色板;
         // 当ver为偶数时, 即没有压缩, 直接返回数据
-        if ((ver & 0x1) === 0) {
-            console.log('not compress', ver, size, w, h, w * h);
-            return graphic.imgData;
+        if (ver % 2 == 0) {
+            return {
+                decodeBuffer: this.imgData,
+                decodePal: null
+            };
         }
 
-        for (let i = 0; i < buf.length && i < size;) {
-            let n1 = buf[i++];
-            let chunk = null;
+        let buf;
+        let i = 0;
+        let decodeBuf = new BufferExt();
+        let decodeLen = w * h;
 
-            if (n1 < 0x10) {
-                // 0n	String	　	　	長度為n的字符串
-                chunk = buf.subarray(i, i + n1);
-                decodeBuf.write(chunk);
-                i += chunk.length;
-            } else if (n1 < 0x20) {
-                // 1n	m	String	　	長度為n*0x100 + m的字符串
-                let n2 = buf[i++];
-                chunk = buf.subarray(i, i + ((n1 & 0xf) << 8) + n2);
-                decodeBuf.write(chunk);
-                i += chunk.length;
-            } else if (n1 < 0x30) {
-                let n2 = buf[i++];
-                let n3 = buf[i++];
-                chunk = buf.subarray(i, i + ((n1 & 0xf) << 16) + (n2 << 8) + n3);
-                decodeBuf.write(chunk);
-                i += chunk.length;
-            } else if (n1 >= 0x80 && n1 < 0xB0) {
-                if (n1 < 0x90) {
-                    chunk = Buffer.alloc((n1 & 0xf), buf[i++]);
-                    decodeBuf.write(chunk);
-                } else if (n1 < 0xA0) {
-                    let n2 = buf[i++];
-                    chunk = Buffer.alloc(((n1 & 0xf) << 8) + buf[i++], n2);
-                    decodeBuf.write(chunk);
-                } else if (n1 < 0xB0) {
-                    let n2 = buf[i++];
-                    let n3 = buf[i++];
-                    chunk = Buffer.alloc(((n1 & 0xf) << 16) + (n3 << 8) + buf[i++], n2);
-                    decodeBuf.write(chunk);
-                }
-            } else if (n1 >= 0xC0 && n1 < 0xF0) {
-                if (n1 < 0xD0) {
-                    chunk = Buffer.alloc((n1 & 0xf), 0);
-                    decodeBuf.write(chunk);
-                } else if (n1 < 0xE0) {
-                    let n2 = buf[i++];
-                    chunk = Buffer.alloc(((n1 & 0xf) << 8) + n2, 0);
-                    decodeBuf.write(chunk);
-                } else if (n1 < 0xF0) {
-                    let n2 = buf[i++];
-                    let n3 = buf[i++];
-                    chunk = Buffer.alloc(((n1 & 0xf) << 16) + (n2 << 8) + n3, 0);
-                    decodeBuf.write(chunk);
-                }
-            } else {
-                throw new Error('incorrect data');
+        if (this.version == 3) {
+            // 当有调色板数据时, 截取从20位开始
+            buf = this.buffer.slice(20, this.buffer.length);
+            decodeLen += this.palSize;
+        } else {
+            buf = this.buffer.slice(16, this.buffer.length);
+        }
+
+        while (decodeBuf.length < decodeLen) {
+            let pixel = buf[i];
+            let condistion = pixel & 0xf0;
+            let count = 0;
+            let val = null;
+            let n, m, y, a;
+            switch (condistion) {
+                case 0x00:
+                    //0n 长度为n的字符串(val, 从i+1 ~ i+1+count)
+                    n = pixel & 0x0f;
+                    count = n;
+                    val = buf.slice(i + 1, i + 1 + count);
+                    if (val.length == count) {
+                        decodeBuf.write(val);
+                        i = i + 1 + count;
+                    } else {
+                        throw new Error(['0x00', val.length, count]);
+                    }
+                    break;
+                case 0x10:
+                    //1n 长度为n*0x100+m的字符串
+                    n = pixel & 0x0f;
+                    m = buf[i + 1];
+                    count = n * 0x100 + m;
+                    val = buf.slice(i + 2, i + 2 + count);
+                    if (val.length == count) {
+                        decodeBuf.write(val);
+                        i = i + 2 + count;
+                    } else {
+                        throw new Error(['0x10', val.length, count]);
+                    }
+                    break;
+                case 0x20:
+                    // 2n 第二个字节m，第三个字节y，代表n*0x10000+x*0x100+y个字符
+                    n = pixel & 0x0f;
+                    m = buf[i + 1];
+                    y = buf[i + 2];
+                    count = n * 0x10000 + (m * 0x100) + y;
+                    val = buf.slice(i + 3, i + 3 + count);
+                    if (val.length == count) {
+                        decodeBuf.write(val);
+                        i = i + 3 + count;
+                    } else {
+                        throw new Error(['0x20', val.length, count]);
+                    }
+                    break;
+                case 0x80:
+                    n = pixel & 0x0f;
+                    count = n;
+                    a = buf[i + 1];
+                    if (a >= 0) {
+                        val = Buffer.alloc(count, a);
+                        decodeBuf.write(val);
+                        i = i + 2;
+                    } else {
+                        throw new Error(['0x80', a]);
+                    }
+                    break;
+                case 0x90:
+                    n = pixel & 0x0f;
+                    a = buf[i + 1];
+                    m = buf[i + 2];
+                    if (a >= 0 && m >= 0) {
+                        count = n * 0x100 + m;
+                        val = Buffer.alloc(count, a);
+                        decodeBuf.write(val);
+                        i = i + 3;
+                    } else {
+                        throw new Error(['0x90', a, m]);
+                    }
+                    break;
+                case 0xa0:
+                    n = pixel & 0x0f;
+                    a = buf[i + 1];
+                    m = buf[i + 2];
+                    y = buf[i + 3];
+                    if (a >= 0 && m >= 0 && y >= 0) {
+                        count = (n * 0x10000) + (m * 0x100) + y;
+                        val = Buffer.alloc(count, a);
+                        decodeBuf.write(val);
+                        i = i + 4;
+                    } else {
+                        throw new Error(['0xa0', a, m, y]);
+                    }
+                    break;
+                case 0xc0:
+                    n = pixel & 0x0f;
+                    count = n;
+                    val = Buffer.alloc(count, BG_COLOR);
+                    decodeBuf.write(val);
+                    i = i + 1;
+                    break;
+                case 0xd0:
+                    n = pixel & 0x0f;
+                    m = buf[i + 1];
+                    if (m >= 0) {
+                        count = n * 0x100 + m;
+                        val = Buffer.alloc(count, BG_COLOR);
+                        decodeBuf.write(val);
+                        i = i + 2;
+                    } else {
+                        throw new Error(['0xd0', m]);
+                    }
+                    break;
+                case 0xe0:
+                    n = pixel & 0x0f;
+                    m = buf[i + 1];
+                    y = buf[i + 2];
+                    if (m >= 0 && y >= 0) {
+                        count = (n * 0x10000) + (m * 0x100) + y;
+                        val = Buffer.alloc(count, BG_COLOR);
+                        decodeBuf.write(val);
+                        i = i + 3;
+                    } else {
+                        throw new Error(['0xe0', m, y]);
+                        return;
+                    }
+                    break;
             }
         }
 
-        return decodeBuf.buffer;
+
+        // NOTE: 如果是v3版本, 解压后的数据末尾是调色板数据, 需要将调色板数据截取出来
+        // TODO: 目前测试到调色板数据长度为708的图片生成图片时有问题, 例如图14, 18, 待验证是否为调色板类bug
+        let diff = decodeBuf.buffer.length - (w*h);
+
+        if (this.version == 3) {
+            return {
+                decodeBuffer: decodeBuf.buffer.slice(0, decodeBuf.buffer.length - this.palSize),
+                decodePal: decodeBuf.buffer.slice(decodeBuf.buffer.length - this.palSize, decodeBuf.buffer.length)
+            };
+        }else{
+            return {
+                decodeBuffer: decodeBuf.buffer,
+                decodePal: null
+            };
+        }
     }
 
     /**
@@ -559,45 +653,45 @@ class Graphic {
             let count = valueArr[i].count;
 
             let buf;
-            if(value === 0){
+            if (value === 0) {
                 // 透明色
-                if(count < 0x10){
+                if (count < 0x10) {
                     let n = 0xC0 + count;
                     buf = Buffer.from([n]);
-                }else if(count < 0x100){
+                } else if (count < 0x100) {
                     let n = 0xD0 + Math.floor(count / 0x100);
                     let m = count % 0x100;
                     buf = Buffer.from([n, m]);
-                }else if(count < 0x10000){
+                } else if (count < 0x10000) {
                     let n = 0xE0 + Math.floor(count / 0x10000);
                     let m = Math.floor(count / 0x100) % 0x100;
                     let c = count % 0x100;
                     buf = Buffer.from([n, m, c]);
                 }
-            } else if(typeof(value)=='string') {
+            } else if (typeof (value) == 'string') {
                 // 字符串 ??? bmp图片数据中会有字符串嘛?
-                if(count < 0x10){
+                if (count < 0x10) {
                     buf = Buffer.from([count, value]);
-                }else if(count < 0x100){
+                } else if (count < 0x100) {
                     let n = Math.floor(count / 0x100);
                     let m = count % 0x100;
                     buf = Buffer.from([0x10 + n, m, value]);
-                }else if(count < 0x10000){
+                } else if (count < 0x10000) {
                     let n = Math.floor(count / 0x10000);
                     let m = Math.floor(count / 0x100) % 0x100;
                     let l = count % 0x100;
                     buf = Buffer.from([0x20 + n, m, l, value]);
                 }
-            }else{
+            } else {
                 // 非透明色
-                if(count < 0x10){
+                if (count < 0x10) {
                     let n = 0x80 + count;
                     buf = Buffer.from([n, value]);
-                }else if(count < 0x100){
+                } else if (count < 0x100) {
                     let n = 0x90 + Math.floor(count / 0x100);
                     let m = count % 0x100;
                     buf = Buffer.from([n, value, m]);
-                }else if(count < 0x10000){
+                } else if (count < 0x10000) {
                     let n = 0xA0 + Math.floor(count / 0x10000);
                     let m = Math.floor(count / 0x100) % 0x100;
                     let l = count % 0x100;
@@ -621,11 +715,24 @@ class Graphic {
      */
     createBMP(filePath, alphaColor, cgp, callback) {
         // 调用encode将this.buffer解密
-        let imgData = this.decode();
+        let {decodeBuffer, decodePal} = this.decode();
+        let imgData = decodeBuffer;
 
         // 调色板数据(BGRA), 256*4位=1024位, 传入cgp>图片自带cgp>默认cgp
-        cgp = cgp || this.cgp || CGPMAP.get('palet_00.cgp');
-        let bgraBuffer = cgp.bgraBuffer;
+        // cgp = cgp || this.cgp || CGPMAP.get('palet_00.cgp');
+        // console.log('cgp.length::', cgp.buffer.length);
+        
+        if(cgp){
+            
+        }else{
+            if(decodePal){
+                cgp = new Cgp(decodePal);
+                
+            }else{
+                cgp = CGPMAP.get('palet_00.cgp');
+            }
+        }
+
         if (alphaColor) {
             // 如果传入了alphaColor, 则将调色板中第一组色值改为alphaColor的色值
             for (let i = 0; i < alphaColor.length; i++) {
@@ -633,8 +740,16 @@ class Graphic {
             }
         }
 
-        console.log(bgraBuffer);
+        let bgraBuffer = cgp.bgraBuffer;
 
+        // 如果调色板长度小于1024(256色), win某些软件无法正常显示, 需补齐1024(256色)
+        if(bgraBuffer.length < 1024){
+            let diff = 1024 - bgraBuffer.length;
+            let addBuffer = Buffer.alloc(diff, 0x00);
+            bgraBuffer = Buffer.concat([bgraBuffer, addBuffer]);
+        }
+
+        
         // 获得像素数据, 生成bmp文件
         let imgWidth = this.imgWidth;
         let imgHeight = this.imgHeight;
@@ -752,6 +867,15 @@ class Graphic {
 
         return this;
     }
+
+
+    /** TODO: 生成png8格式图片
+     * @param {String} filePath 生成图片的目录+文件名
+     * @param {Array} alphaColor 设置背景色BGRA[0, 0, 0, 0]
+     * @param {Cgp} cgp 调色板, 传入cgp>图片自带cgp>默认官方cgp
+     * @param {Function} callback 回调函数
+     */
+    cratePNG(filePath, alphaColor, cgp, callback){}
 }
 
 
@@ -763,17 +887,17 @@ class A {
         this.animeInfoBuffer = infoBuffer;
         this.animeBuffer = dataBuffer;
 
-        if(this.animeInfoBuffer.length % 12 !== 0){
+        if (this.animeInfoBuffer.length % 12 !== 0) {
             throw new Error('animeInfoBuffer文件长度异常');
         }
 
         this.length = this.animeInfoBuffer.length / 12;
         this.data = {};
 
-        for(let i=0; i<this.length; i++){
-            let animeInfo = new AnimeInfo(this.animeInfoBuffer.slice(i*12, (i+1)*12), i);
+        for (let i = 0; i < this.length; i++) {
+            let animeInfo = new AnimeInfo(this.animeInfoBuffer.slice(i * 12, (i + 1) * 12), i);
             let anime = new Anime(this.animeBuffer.slice(animeInfo.addr, animeInfo.addr + animeInfo.animeCount * 10));
-            let data = {animeInfo, anime};
+            let data = { animeInfo, anime };
             this.data[animeInfo.animeId] = data;
             this.lastNode = data;
         }
@@ -1111,7 +1235,7 @@ class Cgp {
             // 官方调色板, 从240开始覆盖后16色
             colorList.length = 240;
             for (let i = 0; i < g_c240_255.length; i++) {
-                this.colorList.push([...g_c240_255[i], alpha]);
+                colorList.push([...g_c240_255[i], alpha]);
             }
         }
 
@@ -1157,14 +1281,17 @@ class Cgp {
 const CGPMAP = new Map();
 cgpInit();
 function cgpInit() {
-    let cgpList = fs.readdirSync('./pal');
+    let cgpList = fs.readdirSync(`${__dirname}/pal`);
     // console.log(cgpList);
     for (let i = 0; i < cgpList.length; i++) {
-        CGPMAP.set(cgpList[i], new Cgp(fs.readFileSync(`./pal/${cgpList[i]}`), true));
+        CGPMAP.set(cgpList[i], new Cgp(fs.readFileSync(`${__dirname}/pal/${cgpList[i]}`), true));
     }
 
     CGPMAP.length = cgpList.length;
 }
 
 
+
 module.exports = { G, GraphicInfo, Graphic, A, AnimeInfo, Anime, Action, Frame, DecodeBuffer: BufferExt, Cgp }
+
+

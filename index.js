@@ -18,6 +18,7 @@ function log(str, type='main'){
 
 
 const { GraphicInfo, Graphic, AnimeInfo, Anime, Action, Frame, G, A } = require('./modules/base');
+const { resourceLimits } = require('worker_threads');
 
 
 let GInfoList = []; //存储图片信息的全局变量, 在读取Info文件时清空
@@ -1154,6 +1155,42 @@ const tfAInfoPath = './bin/TF/bin/Puk3/AnimeInfo_PUK3_2.bin';
 const tfAPath = './bin/TF/bin/Puk3/Anime_PUK3_2.bin';
 
 const RootPath = 'D:/MLTools/图档';
+
+
+// EXP: 批量导出bmp
+// getGraphicInfo(gInfoPath, gInfoArr=>{
+//     // console.log(gInfoArr);
+//     let gBuffer = fs.readFileSync(gPath);
+
+//     let idx = 0;
+//     let pArr = [];
+//     let tArr = [];
+//     for(let i=1000;i<50000;i++){
+//         tArr.push(i);
+//     }
+
+//     for(let i=0;i<tArr.length;i++){
+//         let _gInfo = gInfoArr[tArr[i]];
+//         if(_gInfo){
+//             // console.log(_gInfo.imgNum, _gInfo.addr, _gInfo.addr + _gInfo.imgSize);
+//             let _p = new Promise((resolve, reject)=>{
+//                 let g = new Graphic(gBuffer.slice(_gInfo.addr, _gInfo.addr + _gInfo.imgSize));
+//                 g.createBMP(`./output/tmp/${tArr[i]}.bmp`, null, null, ()=>{
+//                     log(`./output/tmp/${tArr[i]}.bmp`);
+//                     resolve();
+//                 });
+                
+//             });
+
+//             pArr.push(_p);
+//         }
+//     }
+
+    
+//     Promise.all(pArr).then(()=>{
+//         console.log('批量导出完成');
+//     });
+// });
 
 
 
