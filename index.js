@@ -1122,6 +1122,32 @@ function repairPalette(pathList, type=0, callback){
 }
 
 
+module.exports = {
+    readCGInfoFile,
+    getGraphicInfo,
+    getGraphicDataList,
+    getGraphicData,
+    saveGraphicInfo,
+    saveGraphicData,
+    getAnimeInfo,
+    getAnimeData,
+    mkDataDir,
+    getNameSpace,
+    getGInfoLastNum,
+    addGraphicListToFile,
+    addAnimeListToFile,
+    getFileList,
+    splitAnimeById,
+    addAnimeById,
+    addAnimeToFile,
+    checkTarPath,
+    removeAnimeById,
+    removeGraphics,
+    bufferSplice,
+    getUsableId,
+    repairPalette
+};
+
 
 // EXP: 以下为测试数据
 
