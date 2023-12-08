@@ -1183,17 +1183,17 @@ const tfAPath = './bin/TF/bin/Puk3/Anime_PUK3_2.bin';
 const RootPath = 'D:/MLTools/图档';
 
 
-// EXP: 批量导出bmp
+// EXP: 批量导出bmp 
 // getGraphicInfo(gInfoPath, gInfoArr=>{
 //     // console.log(gInfoArr);
 //     let gBuffer = fs.readFileSync(gPath);
 
 //     let idx = 0;
-//     let pArr = [];
-//     let tArr = [];
-//     for(let i=1000;i<50000;i++){
-//         tArr.push(i);
-//     }
+//     let pArr = [];   
+//     let tArr = [166877];
+//     // for(let i=1000;i<50000;i++){
+//     //     tArr.push(i);
+//     // }
 
 //     for(let i=0;i<tArr.length;i++){
 //         let _gInfo = gInfoArr[tArr[i]];

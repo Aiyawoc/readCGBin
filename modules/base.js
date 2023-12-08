@@ -482,6 +482,7 @@ class Graphic {
             let val = null;
             let n, m, y, a;
             switch (condistion) {
+                // 字符串部分, 基本为处理调色板数据
                 case 0x00:
                     //0n 长度为n的字符串(val, 从i+1 ~ i+1+count)
                     n = pixel & 0x0f;
@@ -491,6 +492,7 @@ class Graphic {
                         decodeBuf.write(val);
                         i = i + 1 + count;
                     } else {
+                        // throw {condistion, count, val};
                         throw new Error(['0x00', val.length, count]);
                     }
                     break;
@@ -500,11 +502,18 @@ class Graphic {
                     m = buf[i + 1];
                     count = n * 0x100 + m;
                     val = buf.slice(i + 2, i + 2 + count);
+
                     if (val.length == count) {
                         decodeBuf.write(val);
                         i = i + 2 + count;
+                    } else if(val.length == this.palSize){
+                        // NOTE: 某些修复后为自带调色板的图片, 最后一个解密key的长度(即调色板长度)默认写为了768(256色), 实际可能不是这个长度, 需要根据palSize长度来判断
+                        console.log(this.palSize, val.length, count);
+                        decodeBuf.write(val);
+                        i = i + 2 + count;
                     } else {
-                        throw new Error(['0x10', val.length, count]);
+                        console.log(val);
+                        throw new Error(['0x10', n, m, val.length, count]);
                     }
                     break;
                 case 0x20:
@@ -518,9 +527,10 @@ class Graphic {
                         decodeBuf.write(val);
                         i = i + 3 + count;
                     } else {
-                        throw new Error(['0x20', val.length, count]);
+                        throw new Error(['0x20', n, m, val.length, count]);
                     }
                     break;
+                // 非透明色部分
                 case 0x80:
                     n = pixel & 0x0f;
                     count = n;
@@ -560,6 +570,7 @@ class Graphic {
                         throw new Error(['0xa0', a, m, y]);
                     }
                     break;
+                // 背景色部分(透明色?)
                 case 0xc0:
                     n = pixel & 0x0f;
                     count = n;
@@ -590,7 +601,6 @@ class Graphic {
                         i = i + 3;
                     } else {
                         throw new Error(['0xe0', m, y]);
-                        return;
                     }
                     break;
             }
@@ -598,9 +608,6 @@ class Graphic {
 
 
         // NOTE: 如果是v3版本, 解压后的数据末尾是调色板数据, 需要将调色板数据截取出来
-        // TODO: 目前测试到调色板数据长度为708的图片生成图片时有问题, 例如图14, 18, 待验证是否为调色板类bug
-        let diff = decodeBuf.buffer.length - (w*h);
-
         if (this.version == 3) {
             return {
                 decodeBuffer: decodeBuf.buffer.slice(0, decodeBuf.buffer.length - this.palSize),
@@ -615,7 +622,7 @@ class Graphic {
     }
 
     /**
-     * // TODO: 待验证图片压缩方法
+     * // TODO:  图片压缩方法, 需将调色板数据压入
      * @param {Buffer} imgData 待压缩的图片数据
      * @returns {Buffer} 压缩后的图片数据
      */
@@ -875,7 +882,9 @@ class Graphic {
      * @param {Cgp} cgp 调色板, 传入cgp>图片自带cgp>默认官方cgp
      * @param {Function} callback 回调函数
      */
-    cratePNG(filePath, alphaColor, cgp, callback){}
+    cratePNG(filePath, alphaColor, cgp, callback){
+
+    }
 }
 
 
