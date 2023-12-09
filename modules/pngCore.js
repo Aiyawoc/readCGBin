@@ -44,6 +44,13 @@
 * 4-7位为块类型标记, 固定为49 44 41 54(IDAT)
 * 8-N位为图像数据, 从标记位到块尾的数据,LZ77压缩算法压缩的数据
 * N-N+3位为CRC校验码, 由数据块名+数据块内容进行crc计算获得
+*
+* 行过滤器   索引值
+* 0x00       0x00 0x01 0x0F 0xF0 ...
+* 0x00       0x00 0x01 0x0F 0xF0 ...
+* 0x00       0x00 0x01 0x0F 0xF0 ...
+* 0x00       0x00 0x01 0x0F 0xF0 ...
+* 目前已知行过滤器为0时, 该行每个像素占用1字节为颜色索引值, 其它模式未知
 * 
 * IEND块数据
 * 0-3位为IEND块长度, 固定为0
@@ -69,7 +76,7 @@ class Png8 {
         this.ihdrData.writeInt32BE(width, 0);
         this.ihdrData.writeInt32BE(height, 4);
         this.ihdrData.writeUInt8(8, 8);
-        this.ihdrData.writeUInt8(3, 9);
+        this.ihdrData.writeUInt8(3, 9); // 3
         this.ihdrData.writeUInt8(0, 10);
         this.ihdrData.writeUInt8(0, 11);
         this.ihdrData.writeUInt8(0, 12);
@@ -96,8 +103,16 @@ class Png8 {
         physCrc.writeInt32BE(crc(Buffer.concat([physBlack, physData])), 0);
         this.phys = Buffer.concat([physLen, physBlack, physData, physCrc]);
 
-        // IDAT块数据
-        this.idatData = new Buffer.alloc(width * height + height, 1);
+        // IDAT块数据, 初始化长度, 每行一个过滤器, 一个过滤器占用1字节, 每个像素占用1字节, 一共height行, 每行width个像素, 一共width*height个像素, 一共width*height+height个字节
+        let idatDataArr = [];
+        for (let i = 0; i < height; i++) {
+            idatDataArr.push(0x00);
+            for (let j = 0; j < width; j++) {
+                idatDataArr.push(0x00);
+            }
+        }
+
+        this.idatData = Buffer.from(idatDataArr);
         this.idat = null;
 
         // IEND块数据
@@ -120,7 +135,6 @@ class Png8 {
         let trnsBlack = Buffer.from('tRNS');
         let trnsData = Buffer.alloc(colorList.length);
         let trnsCrc = Buffer.alloc(4);
-
 
         let plteLen = Buffer.alloc(4);
         plteLen.writeInt32BE(colorList.length * 3, 0);
@@ -156,21 +170,22 @@ class Png8 {
         let idatDataDEF = zlib.deflateSync(this.idatData);
         idatLen.writeInt32BE(idatDataDEF.length, 0);
         let idatCrc = Buffer.alloc(4);
-        idatCrc.writeInt32BE(crc(Buffer.concat([idatBlack, idatDataDEF])), 0); //TODO: 待测试, 此处应计算压缩后的数据还是压缩前的数据
+        //TODO: 待测试, 此处应计算压缩后的数据还是压缩前的数据
+        idatCrc.writeInt32BE(crc(Buffer.concat([idatBlack, idatDataDEF])), 0); 
         this.idat = Buffer.concat([idatLen, idatBlack, idatDataDEF, idatCrc]);
     }
 
     // 设置像素点颜色
-    setPixel(x, y, color) {
+    setPixel(x, y, colorIdx) {
         // 计算指定像素在idat buffer中的实际位置
         const pos = (this.width * y) + y + 1 + x;
-        this.idatData.writeUInt8(color, pos);
+        this.idatData.writeUInt8(colorIdx, pos);
     }
 
     // 保存png图片
     writeFile(path) {
         return new Promise((resolve, reject) => {
-            // console.log(this.pngHead, this.ihdr, this.idat, this.iend, this.crc);
+            // console.log(this.pngHead, this.ihdr, this.idat, this.iend);
             // const writeData = Buffer.concat([this.pngHead, this.ihdr, this.idat, this.iend]);
             const writeData = Buffer.concat([this.pngHead, this.ihdr, this.plte, this.trns, this.phys, this.idat, this.iend]);
             fs.writeFileSync(path, writeData);
@@ -179,7 +194,6 @@ class Png8 {
 
     }
 }
-
 
 
 
@@ -255,26 +269,25 @@ function crc(buffer) {
 module.exports = Png8;
 
 
-const png = new Png8(100, 100);
-let paltte = [[255,255,255,255], [242, 52, 86, 255]];
-// for(let i=2;i<256;i++){
-//     paltte.push([Math.floor(Math.random()*256), Math.floor(Math.random()*256), Math.floor(Math.random()*256), Math.floor(Math.random()*256)]);
+// const png = new Png8(10, 10);
+// let paltte = [[255,255,255,255], [242, 52, 86, 255], [20, 111, 139, 0 ], [51, 139, 20, 255]];
+// png.setPlte(paltte);
+
+// for(let x=0;x<10;x++){
+//     for(let y=0;y<10;y++){
+//         if(x%2==0 && y%2==0){
+//             png.setPixel(x, y, 1);
+//         }else if(x%2==0 && y%2==1){
+//             png.setPixel(x, y, 2);
+//         }
+//     }
 // }
 
-png.setPlte(paltte);
+// png.updateIdat();
 
-for(let x=20;x<80;x++){
-    for(let y=20;y<80;y++){
-        png.setPixel(x, y, 1);
-    }
-}
-
-png.updateIdat();
-
-// console.log(png.idat);
-png.writeFile('./testPng.png').then(res=>{
-    console.log(res);
-});
+// png.writeFile('./testPng.png').then(res=>{
+//     console.log(res);
+// });
 
 
 // let input = 'Aiyawoc';
@@ -284,11 +297,15 @@ png.writeFile('./testPng.png').then(res=>{
 // console.log(inflateData.toString());
 
 
-// let testPath = './未标题-1.png';
+// let testPath = './testPng.png';
 // let buf = fs.readFileSync(testPath);
-// let idatBuf = buf.slice(0x6a, 0x6a + 0x68);
+// let idatBuf = buf.slice(0x29, 0x29 + 0x2E);
 // console.log(idatBuf.length, idatBuf);
 // let inflateData = zlib.inflateSync(idatBuf);
 // console.log(inflateData.length, inflateData);
-// fs.writeFileSync('./未标题-1.bin', inflateData);
+// fs.writeFileSync('./testPng.bin', inflateData);
+
 // 解压后长度为10100, 即为w * h + h,(100*100+100), 
+
+
+
