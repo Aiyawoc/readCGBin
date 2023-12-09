@@ -506,7 +506,7 @@ class Graphic {
                     if (val.length == count) {
                         decodeBuf.write(val);
                         i = i + 2 + count;
-                    } else if(val.length == this.palSize){
+                    } else if (val.length == this.palSize) {
                         // NOTE: 某些修复后为自带调色板的图片, 最后一个解密key的长度(即调色板长度)默认写为了768(256色), 实际可能不是这个长度, 需要根据palSize长度来判断
                         console.log(this.palSize, val.length, count);
                         decodeBuf.write(val);
@@ -613,7 +613,7 @@ class Graphic {
                 decodeBuffer: decodeBuf.buffer.slice(0, decodeBuf.buffer.length - this.palSize),
                 decodePal: decodeBuf.buffer.slice(decodeBuf.buffer.length - this.palSize, decodeBuf.buffer.length)
             };
-        }else{
+        } else {
             return {
                 decodeBuffer: decodeBuf.buffer,
                 decodePal: null
@@ -716,47 +716,79 @@ class Graphic {
      * 生成bmp图片
      * 参考链接: https://blog.csdn.net/u013066730/article/details/82625158
      * @param {String} filePath 生成图片的目录+文件名
-     * @param {Array} alphaColor 设置背景色BGRA[0, 0, 0, 0]
-     * @param {Cgp} cgp 调色板, 传入cgp>图片自带cgp>默认官方cgp
+     * @param {Object} options 生成图片的参数 
+     *  |- {Array} alphaColor 指定图片的背景色, BGRA
+     *  |- {Array} changeColor 将背景色替换为该颜色, BGRA
+     *  |- {Boolean} autoAlpha 是否自动查找背景色, 优先级比alphaColor低
+     *  |- {Cgp} cgp 调色板, 传入cgp>图片自带cgp>默认官方cgp
      * @param {Function} callback 回调函数
      */
-    createBMP(filePath, alphaColor, cgp, callback) {
+    createBMP(filePath, options, callback) {
+        let alphaColor = options.alphaColor || null;
+        let autoAlpha = options.autoAlpha || false;
+        let changeColor = options.changeColor || [0x00, 0x00, 0x00, 0x00];
+        let cgp = options.cgp || null;
+
         // 调用encode将this.buffer解密
-        let {decodeBuffer, decodePal} = this.decode();
+        let { decodeBuffer, decodePal } = this.decode();
         let imgData = decodeBuffer;
 
         // 调色板数据(BGRA), 256*4位=1024位, 传入cgp>图片自带cgp>默认cgp
         // cgp = cgp || this.cgp || CGPMAP.get('palet_00.cgp');
         // console.log('cgp.length::', cgp.buffer.length);
-        
-        if(cgp){
-            
-        }else{
-            if(decodePal){
+
+        if (cgp) {
+
+        } else {
+            if (decodePal) {
                 cgp = new Cgp(decodePal);
-                
-            }else{
+
+            } else {
                 cgp = CGPMAP.get('palet_00.cgp');
+            }
+        }
+
+        let colorIdx = -1;
+        if (alphaColor) {
+            // 在cgp.bgColor中查找alphaColor的色值
+            // colorIdx = cgp.bgra.indexOf(alphaColor);
+            for (let i = 0; i < cgp.bgra.length; i++) {
+                let cgpColor = cgp.bgra[i];
+                if (cgpColor[0] == alphaColor[0] && cgpColor[1] == alphaColor[1] && cgpColor[2] == alphaColor[2] && cgpColor[3] == alphaColor[3]) {
+                    colorIdx = i;
+                    break;
+                }
+            }
+        } else if (autoAlpha) {
+            // 找到imgData中,四个角的像素, 用于自动设置背景色, bmp像素顺序为从下到上, 从左到右
+            let leftBottom = imgData.slice(0, 1)[0];
+            let rightBottom = imgData.slice(this.imgWidth - 1, this.imgWidth)[0];
+            let leftTop = imgData.slice(this.imgWidth * (this.imgHeight - 1), this.imgWidth * (this.imgHeight - 1) + 1)[0];
+            let rightTop = imgData.slice(imgData.length - 1, imgData.length)[0];
+
+            if (leftBottom == rightBottom && rightBottom == leftTop && leftTop == rightTop) {
+                // 如果四个角的像素值相等, 则将调色板中这组色值改为alphaColor的色值
+                colorIdx = leftBottom;
+                console.log('autoAlpha');
             }
         }
 
         let bgraBuffer = cgp.bgraBuffer;
 
-        if (alphaColor) {
-            // 如果传入了alphaColor, 则将调色板中第一组色值改为alphaColor的色值
-            for (let i = 0; i < alphaColor.length; i++) {
-                bgraBuffer.writeUInt8(alphaColor[i], i);
+        if (colorIdx >= 0) {
+            // 如果找到了色值, 则将调色板中这组色值改为alphaColor的色值
+            for(let i=0; i<4;i++){
+                bgraBuffer[colorIdx*4+i] = changeColor[i];
             }
         }
 
         // 如果调色板长度小于1024(256色), win某些软件无法正常显示, 需补齐1024(256色)
-        if(bgraBuffer.length < 1024){
+        if (bgraBuffer.length < 1024) {
             let diff = 1024 - bgraBuffer.length;
             let addBuffer = Buffer.alloc(diff, 0x00);
             bgraBuffer = Buffer.concat([bgraBuffer, addBuffer]);
         }
 
-        
         // 获得像素数据, 生成bmp文件
         let imgWidth = this.imgWidth;
         let imgHeight = this.imgHeight;
@@ -809,7 +841,7 @@ class Graphic {
 
         // 回调图片地址
         fs.writeFileSync(filePath, bmpData);
-        callback();
+        callback(filePath);
     }
 
     /**
@@ -882,7 +914,7 @@ class Graphic {
      * @param {Cgp} cgp 调色板, 传入cgp>图片自带cgp>默认官方cgp
      * @param {Function} callback 回调函数
      */
-    cratePNG(filePath, alphaColor, cgp, callback){
+    cratePNG(filePath, alphaColor, cgp, callback) {
 
     }
 }
@@ -1209,6 +1241,37 @@ class Cgp {
         }
 
         return colorList;
+    }
+
+    setBGR(index, colorArray) {
+        if (colorArray.length !== 3) {
+            throw `wrong colorArray length: ${colorArray.length}`;
+        }
+
+        let bgr = this.bgr;
+        for(let i=0;i<3;i++){
+            let colorValue = colorArray[i];
+            if (colorValue < 0 || colorValue > 255) {
+                throw `wrong colorValue: ${colorValue}`;
+            }
+            bgr[index][i] = colorValue;
+        }
+
+        this.buffer = Buffer.from(bgr);
+    }
+
+    setBGRA(index, colorArray) {
+        console.log({index, colorArray});
+        if (colorArray.length !== 4) {
+            throw `wrong colorArray length: ${colorArray.length}`;
+        }
+        for (let i = 0; i < colorArray.length; i++) {
+            let colorValue = colorArray[i];
+            if (colorValue < 0 || colorValue > 255) {
+                throw `wrong colorValue: ${colorValue}`;
+            }
+            this.buffer[index * 4 + i] = colorValue;
+        }
     }
 
     get bgrBuffer() {
