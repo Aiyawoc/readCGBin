@@ -7,11 +7,11 @@ const fs = require('fs');
 const Path = require('path');
 const loger = require('./modules/log');
 
-function log(str, type='main'){
+function log(str, type = 'main') {
     str = JSON.stringify(str);
-    if(type == 'main'){
+    if (type == 'main') {
         loger.main.info(str);
-    }else if(type == 'out'){
+    } else if (type == 'out') {
         loger.main.info(str);
     }
 }
@@ -85,7 +85,7 @@ function getGraphicInfo(path, callback) {
         for (let i = 0; i < len; i++) {
             let _buffer = data.slice(i * 40, i * 40 + 40);
             let gInfo = new GraphicInfo(_buffer, i);
-            if(i === 0){
+            if (i === 0) {
                 infoArr[0] = gInfo;
             }
 
@@ -282,16 +282,16 @@ function saveGraphicData(imgNum, data, nameSpace, callback) {
  * @param {Function} callback 回调函数, 返回AnimeInfoList对象
  * @returns {Object} {length: 长度, 0: 第一条数据, lastNode: 最后一条数据, [animeId]: AnimeInfo对象}
  */
-function  getAnimeInfo(path, callback) {
+function getAnimeInfo(path, callback) {
     fs.readFile(path, (err, data) => {
         if (err) {
-            log('read err'+JSON.stringify(err));
+            log('read err' + JSON.stringify(err));
             callback([]);
             return;
         }
 
-        if(data.length){
-            if(data.length % 12 != 0){
+        if (data.length) {
+            if (data.length % 12 != 0) {
                 log(`读取AnimeInfo文件[${path}]失败, 数据长度异常:${data.length}`);
                 callback([]);
                 return;
@@ -304,7 +304,7 @@ function  getAnimeInfo(path, callback) {
             for (let i = 0; i < len; i++) {
                 let _buffer = data.slice(i * 12, i * 12 + 12);
                 let animeInfo = new AnimeInfo(_buffer, i);
-                if(i === 0){
+                if (i === 0) {
                     infoArr[0] = animeInfo;
                 }
 
@@ -315,7 +315,7 @@ function  getAnimeInfo(path, callback) {
             infoArr.length = len;
 
             callback(infoArr);
-        }else{
+        } else {
             callback([]);
         }
     });
@@ -352,9 +352,9 @@ function mkDataDir(nameSpace, cb) {
     nameSpace = `${nameSpace}`;
     let dirList = fs.readdirSync('./output');
     let has = dirList.includes(nameSpace);
-    if(has){
+    if (has) {
         cb();
-    }else{
+    } else {
         fs.mkdirSync(`./output/${nameSpace}`);
         cb();
     }
@@ -381,10 +381,10 @@ function getNameSpace(path) {
  */
 function getGInfoLastNum(path, callback) {
     getGraphicInfo(path, resArr => {
-        if(resArr.length){
+        if (resArr.length) {
             let lastInfoData = resArr.lastNode;
             callback(lastInfoData.imgNum);
-        }else{
+        } else {
             // 如果目标是空文件, 返回0
             callback(0);
         }
@@ -403,8 +403,8 @@ function getGInfoLastNum(path, callback) {
  * @param {Function} callback 回调函数
  * @returns 
 */
-function addGraphicListToFile(imgNumDictionary, gInfoPathArr, gPathArr, startNum, startAddr, tarGPath, tarGInfoPath, callback){
-    if(gInfoPathArr.length !== gPathArr.length){
+function addGraphicListToFile(imgNumDictionary, gInfoPathArr, gPathArr, startNum, startAddr, tarGPath, tarGInfoPath, callback) {
+    if (gInfoPathArr.length !== gPathArr.length) {
         callback(false);
         log('gInfo文件数量与g文件数量不同, 退出');
         return;
@@ -412,17 +412,17 @@ function addGraphicListToFile(imgNumDictionary, gInfoPathArr, gPathArr, startNum
 
     let gInfoPath = gInfoPathArr.shift();
     let gPath = gPathArr.shift();
-    if(gInfoPath && gPath){
+    if (gInfoPath && gPath) {
         let _gInfo = new GraphicInfo(fs.readFileSync(gInfoPath), 0);
         let _g = new Graphic(fs.readFileSync(gPath));
 
         //NOTE: 有些图片资源imgSize值与buffer.length不同, 且多为0x30, 原因不明, 将其改为数据大小
         _g.imgSize = _g.buffer.length;
-        
+
         let oriImgNum = _gInfo.imgNum;
         _gInfo.imgNum = startNum;
         _gInfo.addr = startAddr;
-        startNum ++;
+        startNum++;
         startAddr = startAddr + _g.buffer.length;
         imgNumDictionary[oriImgNum] = _gInfo.imgNum;
 
@@ -437,7 +437,7 @@ function addGraphicListToFile(imgNumDictionary, gInfoPathArr, gPathArr, startNum
         log(`写入[${gInfoPath}]到graphicInfo完成`);
 
         addGraphicListToFile(imgNumDictionary, gInfoPathArr, gPathArr, startNum, startAddr, tarGPath, tarGInfoPath, callback);
-    }else{
+    } else {
         callback();
     }
 }
@@ -449,13 +449,13 @@ function addGraphicListToFile(imgNumDictionary, gInfoPathArr, gPathArr, startNum
  * @param {String} tarAPath 目标Anime文件地址
  * @param {Function} callback 回调函数
  */
-function addAnimeListToFile(imgNumDictionary, aPathArr, tarAPath,callback){
+function addAnimeListToFile(imgNumDictionary, aPathArr, tarAPath, callback) {
     let aPath = aPathArr.shift();
-    if(aPath){
+    if (aPath) {
         let _anime = new Anime(fs.readFileSync(aPath));
         let frames = _anime.actions[0].frames;
         // 修改frames中的图片编号为imgNumDictionary中的新编号
-        for(let i=0;i<frames.length;i++){
+        for (let i = 0; i < frames.length; i++) {
             let _frame = frames[i];
             _frame.imgNum = imgNumDictionary[`${_frame.imgNum}`];
         }
@@ -465,8 +465,8 @@ function addAnimeListToFile(imgNumDictionary, aPathArr, tarAPath,callback){
         fs.writeFileSync(tarAFD, _anime.buffer);
         fs.closeSync(tarAFD);
         log(`写入[${aPath}]到anime完成`);
-        addAnimeListToFile(imgNumDictionary, aPathArr, tarAPath,callback);
-    }else{
+        addAnimeListToFile(imgNumDictionary, aPathArr, tarAPath, callback);
+    } else {
         callback();
     }
 }
@@ -518,7 +518,7 @@ function splitAnimeById(pathList, animeId, callback) {
 
         log(`开始查找[${animeId}]的动画数据`);
 
-        let targetAnimeInfo = AInfoArr[animeId]; 
+        let targetAnimeInfo = AInfoArr[animeId];
 
         if (targetAnimeInfo) {
             // 获取下一条动画数据的addr作为endAddr, 如果没有, 则设为null(即文件尾)
@@ -548,9 +548,9 @@ function splitAnimeById(pathList, animeId, callback) {
                     let gFileBuffer = fs.readFileSync(pathList.graphicPath);
                     let imgNumDictionary = {}; //图片编号字典, 用于记录图片的新编号, key:原编号, value:新编号
                     let offsetAddr = 0; //记录图片数据的偏移地址
-                    for(let i=0;i<needImgInfoArr.length;i++){
+                    for (let i = 0; i < needImgInfoArr.length; i++) {
                         let _gInfo = needImgInfoArr[i];
-                        
+
                         imgNumDictionary[_gInfo.imgNum] = i;
                         let _g = new Graphic(gFileBuffer.slice(_gInfo.addr, _gInfo.addr + _gInfo.imgSize));
 
@@ -562,10 +562,10 @@ function splitAnimeById(pathList, animeId, callback) {
                         writeGInfoArr.push(_gInfo.buffer);
                         writeGArr.push(_g.buffer);
                     }
-                    
+
                     // 更新动画数据中的图片编号
-                    for(let i=0;i<animeData.actions.length;i++){
-                        for(let j=0;j<animeData.actions[i].frames.length;j++){
+                    for (let i = 0; i < animeData.actions.length; i++) {
+                        for (let j = 0; j < animeData.actions[i].frames.length; j++) {
                             let _frame = animeData.actions[i].frames[j];
                             _frame.imgNum = imgNumDictionary[_frame.imgNum];
                         }
@@ -644,9 +644,9 @@ function addAnimeById(animeId, tarPath, callback) {
         // 获取tarGInfo文件中最后一条数据的编号
         let pGetLastNum = new Promise((resolve, reject) => {
             getGInfoLastNum(tarGInfoPath, lastNum => {
-                if(lastNum){
+                if (lastNum) {
                     resolve(lastNum + 1);
-                }else{
+                } else {
                     resolve(0);
                 }
             });
@@ -670,28 +670,28 @@ function addAnimeById(animeId, tarPath, callback) {
             let startAddr = dataList[1];
 
             // 批量读取gInfo文件, g文件, 修改gInfo文件的起始编号, addr
-            addGraphicListToFile(imgNumDictionary, gInfoFileArr, gFileArr, startNum, startAddr, tarGPath, tarGInfoPath, ()=>{
+            addGraphicListToFile(imgNumDictionary, gInfoFileArr, gFileArr, startNum, startAddr, tarGPath, tarGInfoPath, () => {
                 log('graphicInfo文件, graphic文件写入完成, 开始写入动画文件');
 
                 // 读取目标tarAInfoPath文件, 获取下一个动画编号
-                let pGetTarAInfo = new Promise((resolve, reject)=>{
-                    getAnimeInfo(tarAInfoPath, aInfoArr=>{
-                        if(aInfoArr.length){
+                let pGetTarAInfo = new Promise((resolve, reject) => {
+                    getAnimeInfo(tarAInfoPath, aInfoArr => {
+                        if (aInfoArr.length) {
                             let last = aInfoArr.lastNode;
-                            resolve(last.animeId+1);
-                        }else{
+                            resolve(last.animeId + 1);
+                        } else {
                             resolve(0);
                         }
                     });
                 });
 
                 // 读取目标tarAPath文件, 获取下一个动画起始地址
-                let pGetTarAPath = new Promise((resolve, reject)=>{
+                let pGetTarAPath = new Promise((resolve, reject) => {
                     let tarAHex = fs.readFileSync(tarAPath);
                     resolve(tarAHex.length);
                 });
 
-                Promise.all([pGetTarAInfo, pGetTarAPath]).then(aDataList =>{
+                Promise.all([pGetTarAInfo, pGetTarAPath]).then(aDataList => {
                     // 读取待写入aInfo文件, 修改动画编号, 修改起始地址
                     let startNum = aDataList[0];
                     let startAddr = aDataList[1];
@@ -707,12 +707,12 @@ function addAnimeById(animeId, tarPath, callback) {
                     log(`写入[${aInfoFileArr[0]}]到animeInfo文件完成`);
 
                     // 批量(递归)将待写入a文件写入目标a文件
-                    addAnimeListToFile(imgNumDictionary, aFileArr, tarAPath, ()=>{
+                    addAnimeListToFile(imgNumDictionary, aFileArr, tarAPath, () => {
                         log(`anime文件写入完成完成`);
                         callback();
                     });
                 });
-                
+
             });
         });
     });
@@ -726,7 +726,7 @@ function addAnimeById(animeId, tarPath, callback) {
  * @param {Boolean} repairPal 是否修复pal文件, 默认不修复
  * @param {Function} callback 回调函数
  */
-function addAnimeToFile(fromPath, tarPath, animeId, repairPal=false, callback){
+function addAnimeToFile(fromPath, tarPath, animeId, repairPal = false, callback) {
     // 1. 读取目标文件中的aInfo, 获取最后一条动画的编号, 作为起始编号
     // 2. 读取目标文件中的a文件, 获取最后一条动画的结束地址(文件长度), 作为起始地址
     // 3. 读取目标文件中的gInfo, 获取最后一条图片的编号, 作为起始编号
@@ -745,8 +745,8 @@ function addAnimeToFile(fromPath, tarPath, animeId, repairPal=false, callback){
  * @param {Object} tarPath {tarAInfoPath, tarAPath, tarGInfoPath, tarGPath}
  * @param {Function} callback 回调函数
  */
-function checkTarPath(tarPath, callback){
-    let {aInfoPath, aPath, gInfoPath, gPath} = tarPath;
+function checkTarPath(tarPath, callback) {
+    let { aInfoPath, aPath, gInfoPath, gPath } = tarPath;
     let dirName = Path.dirname(aInfoPath);
     let aInfoName = Path.basename(aInfoPath);
     let aName = Path.basename(aPath);
@@ -757,43 +757,43 @@ function checkTarPath(tarPath, callback){
 
     let emptyBuf = Buffer.alloc(0);
     let pArr = [];
-    if(!fileList.includes(aInfoName)){
+    if (!fileList.includes(aInfoName)) {
         log(`[${aInfoName}]文件不存在, 创建空文件`);
-        let p = new Promise((resolve, reject)=>{
+        let p = new Promise((resolve, reject) => {
             fs.writeFileSync(aInfoPath, emptyBuf);
             resolve();
         });
         pArr.push(p);
     }
-    
-    if(!fileList.includes(aName)){
+
+    if (!fileList.includes(aName)) {
         log(`[${aName}]文件不存在, 创建空文件`);
-        let p = new Promise((resolve, reject)=>{
+        let p = new Promise((resolve, reject) => {
             fs.writeFileSync(aPath, emptyBuf);
             resolve();
         });
         pArr.push(p);
     }
 
-    if(!fileList.includes(gInfoName)){
+    if (!fileList.includes(gInfoName)) {
         log(`[${gInfoName}]文件不存在, 创建空文件`);
-        let p = new Promise((resolve, reject)=>{
+        let p = new Promise((resolve, reject) => {
             fs.writeFileSync(gInfoPath, emptyBuf);
             resolve();
         });
         pArr.push(p);
     }
 
-    if(!fileList.includes(gName)){
+    if (!fileList.includes(gName)) {
         log(`[${gName}]文件不存在, 创建空文件`);
-        let p = new Promise((resolve, reject)=>{
+        let p = new Promise((resolve, reject) => {
             fs.writeFileSync(gPath, emptyBuf);
             resolve();
         });
         pArr.push(p);
     }
 
-    Promise.all(pArr).then(()=>{
+    Promise.all(pArr).then(() => {
         callback(tarPath);
     });
 }
@@ -804,16 +804,16 @@ function checkTarPath(tarPath, callback){
  * @param {Boolean} delGraphic 是否删除对应的图片数据
  * @param {Function} callback 回调函数
  */
-function removeAnimeById(animeId, tarPath, delGraphic=true, callback){
+function removeAnimeById(animeId, tarPath, delGraphic = true, callback) {
     // 删除流程
     // 1. 读取ainfo, 获取目标动画在a文件中的addr
-    let {aInfoPath, aPath} = tarPath;
-    getAnimeInfo(aInfoPath, aInfoArr=>{
+    let { aInfoPath, aPath } = tarPath;
+    getAnimeInfo(aInfoPath, aInfoArr => {
         let curIdx = 0, curAInfo = null;
-        if(aInfoArr[animeId]){
+        if (aInfoArr[animeId]) {
             curAInfo = aInfoArr[animeId];
             curIdx = animeId;
-        } else{
+        } else {
             log(`[${aInfoPath}]中不存在[${animeId}]动画信息, 退出`);
             callback();
             return;
@@ -823,17 +823,17 @@ function removeAnimeById(animeId, tarPath, delGraphic=true, callback){
 
         // 目标动画在a文件中的addr
         let startAddr = curAInfo.addr;
-        
+
         // 2. 获取目标动画的下一条动画在a文件中的addr, 作为截止addr, 如果该动画是最后一条, 则截止addr设为null, 即为文件尾
         let endAddr = null;
-        if(aInfoArr[curIdx+1]){
-            endAddr = aInfoArr[curIdx+1].addr;
+        if (aInfoArr[curIdx + 1]) {
+            endAddr = aInfoArr[curIdx + 1].addr;
         }
 
-        console.log({startAddr, endAddr});
-        
+        console.log({ startAddr, endAddr });
+
         // 3. 读取a文件, 获取目标动画数据中的图片信息
-        getAnimeData(aPath, curAInfo, endAddr, tarAData=>{
+        getAnimeData(aPath, curAInfo, endAddr, tarAData => {
             let imgList = tarAData.imgList;
             // console.log(tarAData.buffer.length==endAddr-curAInfo.addr);
             let tarADataLen = tarAData.buffer.length;
@@ -852,37 +852,37 @@ function removeAnimeById(animeId, tarPath, delGraphic=true, callback){
             fs.closeSync(aPathFD);
             log(`从[${aPath}]中删除[${animeId}]动画完成`);
 
-            
+
             // 5. 删除ainfo文件中的目标动画信息, 并更新之后所有的动画信息的addr
             let aInfoHex = fs.readFileSync(aInfoPath);
             // console.log({curAInfo}, curAInfo.addr,aInfoHex.length, aInfoHex.length/12);
-            let secondHarfHex = aInfoHex.slice(curAInfo.selfAddr+12, aInfoHex.length);
+            let secondHarfHex = aInfoHex.slice(curAInfo.selfAddr + 12, aInfoHex.length);
             let len = secondHarfHex.length / 12;
             let allLen = aInfoHex.length / 12;
             // console.log({len});
-            
-            for(let i=0; i<len; i++){
-                let _hex = secondHarfHex.slice(i*12, (i+1)*12);
-                let _aInfo = new AnimeInfo(_hex, i+(allLen-len-1));
+
+            for (let i = 0; i < len; i++) {
+                let _hex = secondHarfHex.slice(i * 12, (i + 1) * 12);
+                let _aInfo = new AnimeInfo(_hex, i + (allLen - len - 1));
                 console.log(`原始地址: ${curAInfo.addr}`);
                 console.log(tarAData.buffer.length);
-                console.log({i, _hex}, _aInfo.addr, tarADataLen);
+                console.log({ i, _hex }, _aInfo.addr, tarADataLen);
                 _aInfo.addr = _aInfo.addr - tarADataLen;
-                console.log({_aInfo});
+                console.log({ _aInfo });
             }
 
-            let writeAinfoBuffer = bufferSplice(aInfoHex, 12*curIdx, 12);
+            let writeAinfoBuffer = bufferSplice(aInfoHex, 12 * curIdx, 12);
             let aInfoPathFD = fs.openSync(aInfoPath, 'w+');
             fs.writeFileSync(aInfoPathFD, writeAinfoBuffer);
             fs.closeSync(aInfoPathFD);
             log(`从[${aInfoPath}]中删除[${animeId}]动画信息完成`);
 
             // 6. 如果需要删除图片数据, 则调用removeGraphics, 删除图片数据
-            if(delGraphic){
-                removeGraphics(imgList, tarPath, res=>{
+            if (delGraphic) {
+                removeGraphics(imgList, tarPath, res => {
                     callback();
                 });
-            }else{
+            } else {
                 callback();
             }
         });
@@ -896,8 +896,8 @@ function removeAnimeById(animeId, tarPath, delGraphic=true, callback){
  * @param {Object} tarPath 目标文件路径 {aInfoPath, aPath, gInfoPath, gPath}
  * @param {Function} callback 回调函数
  */
-function removeGraphics(imgList, tarPath, callback){
-    let {gInfoPath, gPath} = tarPath;
+function removeGraphics(imgList, tarPath, callback) {
+    let { gInfoPath, gPath } = tarPath;
 
     // 删除流程
     // 1. 读取ginfo文件, 获取图片列表在info文件中的起止addr
@@ -907,13 +907,13 @@ function removeGraphics(imgList, tarPath, callback){
     let gStartAddr = 0, gEndAddr = 0;
     let gDelSize = 0;
 
-    getGraphicInfo(gInfoPath, gInfoArr=>{
+    getGraphicInfo(gInfoPath, gInfoArr => {
         let startGInfo = gInfoArr[imgList[0]];
         // BUG: 目前传过来的图片列表最后一个值是166879, 但是gInfoArr中最后一条数据的imgNum是166878, 导致endGInfo为undefined; 检查gInfo文件, g文件均没有这张图片, 但是a文件中有, 且是最后一张图片
         let endGInfo = null;
         // TODO: 增加容错, 获取gInfoArr中存在的, imgList里面最大的值, 避免一些错误动画图档缺失图片的情况, 或者尝试删除imgList的每一张图片?
-        for(let i=imgList[imgList.length-1];i>=imgList[0];i--){
-            if(gInfoArr[i]){
+        for (let i = imgList[imgList.length - 1]; i >= imgList[0]; i--) {
+            if (gInfoArr[i]) {
                 endGInfo = gInfoArr[i];
                 break;
             }
@@ -926,7 +926,7 @@ function removeGraphics(imgList, tarPath, callback){
         gStartAddr = startGInfo.addr;
         gEndAddr = endGInfo.addr + endGInfo.imgSize;
         gDelSize = gEndAddr - gStartAddr;
-        
+
         // 3. 批量更新被删除图片后面的数据中的addr
         let gInfoFileHex = fs.readFileSync(gInfoPath);
         let secondHarfHex = gInfoFileHex.slice(infoEndAddr, gInfoFileHex.length);
@@ -962,18 +962,18 @@ function removeGraphics(imgList, tarPath, callback){
  * @param {Number} size 删除的位数
  * @returns {Buffer} 删除后新的buffer
  */
-function bufferSplice(buffer, start, size){
+function bufferSplice(buffer, start, size) {
     start = start || 0;
     end = start + size;
     let part0 = Buffer.alloc(start);
     let part2 = Buffer.alloc(buffer.length - start - size);
-    for(let i=0;i<buffer.length;i++){
-        if(i<start){
+    for (let i = 0; i < buffer.length; i++) {
+        if (i < start) {
             part0[i] = buffer[i];
         }
-        
-        if(i>=end){
-            part2[i-end] = buffer[i];
+
+        if (i >= end) {
+            part2[i - end] = buffer[i];
         }
     }
 
@@ -984,7 +984,7 @@ function bufferSplice(buffer, start, size){
 /** TODO: 获取可用id
  * @param {Function} callback 回调函数
  */
-function getUsableId(callback){
+function getUsableId(callback) {
 
 }
 
@@ -994,43 +994,43 @@ function getUsableId(callback){
  * @param {Number} type 修复方法, 0:修复为自带调色板 1:修复为全局调色板, 默认0
  * @param {Function} callback 回调函数 
  */
-function repairPalette(pathList, type=0, callback){
-    let {aInfoPath, aPath, gInfoPath, gPath} = pathList;
+function repairPalette(pathList, type = 0, callback) {
+    let { aInfoPath, aPath, gInfoPath, gPath } = pathList;
 
     // 0. 读取animeInfo文件, 获取动画id
-    let p0 = new Promise((resolve, reject)=>{
-        getAnimeInfo(aInfoPath, aInfoArr=>{
+    let p0 = new Promise((resolve, reject) => {
+        getAnimeInfo(aInfoPath, aInfoArr => {
             let animeId = aInfoArr[0].animeId;
             resolve(animeId);
         });
     });
 
     // 1. 读取gInfo文件, 获取图片列表, 检索是否存在mapId == animeId的图片
-    let p1 = new Promise((resolve, reject)=>{
-        getGraphicInfo(gInfoPath, gInfoArr=>{
+    let p1 = new Promise((resolve, reject) => {
+        getGraphicInfo(gInfoPath, gInfoArr => {
             resolve(gInfoArr);
         });
     });
 
-    Promise.all([p0, p1]).then(dataList=>{
+    Promise.all([p0, p1]).then(dataList => {
         let animeId = dataList[0];
         let gInfoArr = dataList[1];
         let paletteGraphicInfo = null;
 
         // 先判断gInfoArr.lastNode 是否为隐藏调色板文件, 如果不是, 再遍历gInfoArr, 找到mapId == animeId的图片
-        if(gInfoArr.lastNode.mapId == animeId){
+        if (gInfoArr.lastNode.mapId == animeId) {
             paletteGraphicInfo = gInfoArr.lastNode;
-        }else{
-            for(let key in gInfoArr){
+        } else {
+            for (let key in gInfoArr) {
                 let _gInfo = gInfoArr[key];
-                if(_gInfo.mapId == animeId){
+                if (_gInfo.mapId == animeId) {
                     paletteGraphicInfo = _gInfo;
                     break;
                 }
             }
         }
 
-        if(!paletteGraphicInfo){
+        if (!paletteGraphicInfo) {
             log(`未找到[${animeId}]动画的隐藏调色板`);
             callback(false);
             return;
@@ -1043,8 +1043,8 @@ function repairPalette(pathList, type=0, callback){
         let cgp = paletteGraphic.cgp;
         let ver = paletteGraphic.version;
         let pad = paletteGraphic.pad;
-        
-        if(type == 0){
+
+        if (type == 0) {
             // 修复为自带调色板模式
             // 3. 批量更新graphic中的version, pad, 插入palSize, 插入cgp.buffer, 同时更新gInfo文件中的addr, imgSize, 最后删除gInfo文件中的调色板图片信息和g文件中的调色板图片
             let gInfoBuffer = fs.readFileSync(gInfoPath);
@@ -1052,14 +1052,14 @@ function repairPalette(pathList, type=0, callback){
             let finalGArr = [];
             let nextAddr = 0;
             let len = Math.floor(gInfoBuffer.length / 40);
-            for(let i=0; i<len; i++){
-                let _gInfoBuffer = gInfoBuffer.slice(i*40, i*40+40);
+            for (let i = 0; i < len; i++) {
+                let _gInfoBuffer = gInfoBuffer.slice(i * 40, i * 40 + 40);
                 let _gInfo = new GraphicInfo(_gInfoBuffer, i);
                 let startAddr = _gInfo.addr;
                 let endAddr = _gInfo.addr + _gInfo.imgSize;
                 let _gBuffer = gBuffer.slice(startAddr, endAddr);
                 let _graphic = new Graphic(Buffer.from(_gBuffer));
-                if(_gInfo.mapId !== animeId){
+                if (_gInfo.mapId !== animeId) {
                     // NOTE: 这里用slice截取的buffer, 在第一次修改后, 因为修改了数据长度, 所以后面截取的数据地址会发生偏移, 导致数据错误, 因此需要用from方法创建一个新的buffer
                     _graphic.version = ver;
                     _graphic.pad = pad;
@@ -1069,7 +1069,7 @@ function repairPalette(pathList, type=0, callback){
                     _gInfo.imgSize = _graphic.buffer.length;
                     nextAddr += _graphic.buffer.length;
                     finalGInfoArr.push(_gInfo.buffer);
-                }else{
+                } else {
                     // NOTE: 隐藏调色板图片信息, 读修复过的文件发现, 动画关键帧中仍有该帧, 仅将该图mapId改为0, addr改为修改后的addr
                     finalGArr.push(_graphic.buffer);
                     _gInfo.addr = nextAddr;
@@ -1083,7 +1083,7 @@ function repairPalette(pathList, type=0, callback){
             let dirName = Path.dirname(gInfoPath);
             // 判断selfPal文件夹是否存在, 不存在则创建
             let newPath = Path.join(dirName, 'selfPal');
-            if(!fs.existsSync(newPath)){
+            if (!fs.existsSync(newPath)) {
                 fs.mkdirSync(newPath);
             }
 
@@ -1106,7 +1106,7 @@ function repairPalette(pathList, type=0, callback){
             fs.copyFileSync(aPath, aFileName);
 
             callback(true);
-        }else{
+        } else {
             // TODO: 修复为全局调色板模式
             /*
                 1. 获取调色板数据
@@ -1184,36 +1184,40 @@ const RootPath = 'D:/MLTools/图档';
 
 
 // EXP: 批量导出bmp 
-// getGraphicInfo(gInfoPath, gInfoArr=>{
+// getGraphicInfo(gInfoPath, gInfoArr => {
 //     // console.log(gInfoArr);
 //     let gBuffer = fs.readFileSync(gPath);
 
-//     let idx = 0;
-//     let pArr = [];   
-//     let tArr = [166877];
-//     // for(let i=1000;i<50000;i++){
-//     //     tArr.push(i);
-//     // }
+//     let pArr = [];
+//     let tArr = [];
+//     for (let i = 0; i < 10; i++) {
+//         tArr.push(i);
+//     }
 
-//     for(let i=0;i<tArr.length;i++){
+//     for (let i = 0; i < tArr.length; i++) {
 //         let _gInfo = gInfoArr[tArr[i]];
-//         if(_gInfo){
+//         if (_gInfo) {
 //             // console.log(_gInfo.imgNum, _gInfo.addr, _gInfo.addr + _gInfo.imgSize);
-//             let _p = new Promise((resolve, reject)=>{
+//             let _p = new Promise((resolve, reject) => {
 //                 let g = new Graphic(gBuffer.slice(_gInfo.addr, _gInfo.addr + _gInfo.imgSize));
-//                 g.createBMP(`./output/tmp/${tArr[i]}.bmp`, null, null, ()=>{
+//                 g.createBMP(`./output/tmp/${tArr[i]}.bmp`, {
+//                     alphaColor: [155, 43, 0, 0],
+//                     changeColor: [255, 255, 255, 0],
+//                     autoAlpha: true,
+//                     cgp: null
+//                 }, () => {
 //                     log(`./output/tmp/${tArr[i]}.bmp`);
 //                     resolve();
 //                 });
-                
+
 //             });
 
 //             pArr.push(_p);
 //         }
 //     }
 
-    
-//     Promise.all(pArr).then(()=>{
+
+//     Promise.all(pArr).then(() => {
 //         console.log('批量导出完成');
 //     });
 // });
@@ -1394,16 +1398,16 @@ const RootPath = 'D:/MLTools/图档';
 
 // NOTE: _2版本, _3版本打入后均正常显示
 
-// NOTE: 从图片解出来的调色板颜色不对, 尝试不解压调色板部分  
+// NOTE: 从图片解出来的调色板颜色不对, 尝试不解压调色板部分
 
 // NOTE: 修复前gInfo中图片信息数为497, _2版本gInfo中图片信息数为497, _3版本gInfo中图片信息数为496(删除了隐藏调色板的图片)
 
 // NOTE: 修复前, 与_2版本修复中, 都有一张图片MapId==AnimieID, 为隐藏调色板文件
 
-// NOTE: _2版本修复为把隐藏调色板去掉, 使用全局调色板, 因此图档文件变小 ??? 
+// NOTE: _2版本修复为把隐藏调色板去掉, 使用全局调色板, 因此图档文件变小 ???
 
 // NOTE: _3版本修复为把动画的隐藏调色板加到了每张图片中, 因此图档文件变大
 
-// NOTE: 群友[無憂無慮]提示转全局后颜色变少，压缩后就更小了, RD版本02或03的才带独立调色板，00或01没有，使用全局调色板，就是那些cgp文件; 但RD01的也可能是使用隐藏调色板，由anime里的调色板号决定，或者用动画ID查找; puk后的图档大部分都是隐藏调色板; 提取为全局或独立调色就不需要; 调色板和图片索引数据一起压缩了; 一般是768字节，有些调色板长度不足768; 
+// NOTE: 群友[無憂無慮]提示转全局后颜色变少，压缩后就更小了, RD版本02或03的才带独立调色板，00或01没有，使用全局调色板，就是那些cgp文件; 但RD01的也可能是使用隐藏调色板，由anime里的调色板号决定，或者用动画ID查找; puk后的图档大部分都是隐藏调色板; 提取为全局或独立调色就不需要; 调色板和图片索引数据一起压缩了; 一般是768字节，有些调色板长度不足768;
 
 // NOTE: 群友[fantastic]: 文件头有数据长度和调色板长度, 解壓後到字節數滿足為止, 就是調色板數據; 不用管解壓到哪裡 反正解壓到字節滿足為止     
