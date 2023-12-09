@@ -9,8 +9,9 @@
  * 其中, 一个Anime是由若干个Action组成, 每个Action中包含一个头和若干个Frame
  */
 
+const { info } = require('console');
 const fs = require('fs');
-
+const Path = require('path');
 
 
 Buffer.prototype.insert = function (addr, hex) {
@@ -21,19 +22,30 @@ Buffer.prototype.insert = function (addr, hex) {
 }
 
 
-/** TODO: 待验证图片文件类
- * 本类接收两个参数, 一个是图片信息文件, 一个是图片数据文件, 均为通过fs.readFileSync读取的十六进制数据
- */
-class G {
+// 图片文件类
+class GFile {
     /**
      * 实例化
-     * @param {Buffer} graphicInfoBuffer graphicInfo文件的十六进制数据
-     * @param {Buffer} graphicBuffer  graphic文件的十六进制数据
+     * @param {String} graphicPath graphic文件路径
+     * @param {String} graphicInfoPath  graphicInfo文件路径
      */
-    constructor(graphicInfoBuffer, graphicBuffer) {
-        this.graphicInfoBuffer = graphicInfoBuffer;
-        this.graphicBuffer = graphicBuffer;
+    constructor(graphicPath, graphicInfoPath) {
+        this.graphicPath = graphicPath;
+        this.graphicInfoPath = graphicInfoPath;
+        this.graphicBuffer = fs.readFileSync(graphicPath);
+        this.graphicInfoBuffer = fs.readFileSync(graphicInfoPath);
         this.data = new Map();
+
+        this.updateMap();
+
+        return this;
+    }
+
+    /**
+     * 更新map
+     */
+    updateMap() {
+        this.data.clear();
 
         if (this.graphicInfoBuffer.length % 40 !== 0) {
             throw new Error('graphicInfo文件长度异常');
@@ -47,6 +59,13 @@ class G {
             this.data.set(graphicInfo.imgNum, data);
             this.lastNode = data;
         }
+    }
+
+    // 释放
+    release() {
+        this.graphicInfoBuffer = null;
+        this.graphicBuffer = null;
+        this.data = null;
     }
 
     /**
@@ -97,6 +116,223 @@ class G {
             data.graphicInfo.addr += offset;
         });
 
+        return this;
+    }
+
+    /**
+     * 导出图片
+     * @param {Number} imgNum 图片编号
+     * @param {String} path 保存路径
+     */
+    exportGraphic(imgNum, path) {
+        let data = this.getDataByImgNum(imgNum);
+        if (!data) {
+            throw `not found [${imgNumList[i]}]`
+        }
+        // 深拷贝graphicInfo
+        let writeGraphicInfoBuffer = Buffer.alloc(data.graphicInfo.buffer.length);
+        data.graphicInfo.buffer.copy(writeGraphicInfoBuffer);
+        let writeGraphicInfo = new GraphicInfo(writeGraphicInfoBuffer);
+        // 修改graphicInfo中的addr为0
+        writeGraphicInfo.addr = 0;
+        // 修改graphicInfo中的imgNum为0
+        writeGraphicInfo.imgNum = 0;
+        // 将graphicInfo写入文件
+        let infoPath = Path.join(path, `GraphicInfo_${imgNum}.bin`);
+        fs.writeFileSync(infoPath, writeGraphicInfo.buffer);
+        // 将graphic写入文件
+        let gPath = Path.join(path, `Graphic_${imgNum}.bin`);
+        fs.writeFileSync(gPath, data.graphic.buffer);
+
+        return this;
+    }
+
+    /**
+     * 导出多张图片
+     * @param {Array} imgNumList 图片编号数组
+     * @param {String} path 保存路径
+     */
+    exportMultGraphic(imgNumList, path) {
+        // 查找目标图片数据
+        // 深拷贝graphicInfo, 修改addr, 修改imgNum, 加入待写入数组
+        let writeGraphicInfoList = [];
+        let writeGraphicList = [];
+        let offsetAddr = 0;
+        let startImgNum = imgNumList[0];
+        let endImgNum = imgNumList[imgNumList.length - 1];
+        for (let i = 0; i < imgNumList.length; i++) {
+            let data = this.getDataByImgNum(imgNumList[i]);
+            if (!data) {
+                throw `not found [${imgNumList[i]}]`
+            }
+
+            let tmpBuffer = Buffer.alloc(data.graphicInfo.buffer.length);
+            data.graphicInfo.buffer.copy(tmpBuffer);
+            let tmpGraphicInfo = new GraphicInfo(tmpBuffer);
+            tmpGraphicInfo.imgNum = i;
+            tmpGraphicInfo.addr = offsetAddr;
+            offsetAddr += data.graphic.buffer.length;
+            writeGraphicInfoList.push(tmpGraphicInfo.buffer);
+            writeGraphicList.push(data.graphic.buffer);
+        }
+
+        // 将graphicInfo写入文件
+        let infoPath = Path.join(path, `GraphicInfo_${startImgNum}-${endImgNum}.bin`);
+        fs.writeFileSync(infoPath, Buffer.concat(writeGraphicInfoList));
+
+        // 将graphic写入文件
+        let gPath = Path.join(path, `Graphic_${startImgNum}-${endImgNum}.bin`);
+        fs.writeFileSync(gPath, Buffer.concat(writeGraphicList));
+
+        return this;
+    }
+
+    /**
+     * 追加图片, 支持多张
+     * @param {Buffer} graphicInfoBuffer 待添加的graphicInfo buffer
+     * @param {Buffer} graphicBuffer 待添加的graphic buffer
+     * @param {Number} startNum 起始编号, 默认为最后一张图片的编号+1
+     * @returns 
+     */
+    addGraphic(graphicInfoBuffer, graphicBuffer, startNum = null) {
+        // 如果未传入startNum, 则获取起始Num
+        startNum = startNum || this.lastNode.graphicInfo.imgNum + 1;
+        // 获取起始addr
+        let startAddr = this.graphicBuffer.length;
+
+        // 分割待追加数据
+        let gInfoBufferList = [];
+        let gBufferList = [];
+        if (graphicInfoBuffer.length % 40 !== 0) {
+            throw `graphicInfo文件长度异常:: % 40 = [graphicInfoBuffer.length % 40]`;
+        }
+        let len = graphicInfoBuffer.length / 40;
+        let offsetAddr = 0;
+        for (let i = 0; i < len; i++) {
+            let _gInfo = new GraphicInfo(graphicInfoBuffer.slice(i * 40, i * 40 + 40));
+            let _g = new Graphic(graphicBuffer.slice(_gInfo.addr, _gInfo.addr + _gInfo.imgSize));
+
+            let newImgNum = startNum + i;
+            // 检测startNum是否冲突
+            if (this.getDataByImgNum(newImgNum)) {
+                throw `imgNum [${newImgNum}] 已存在`
+            }
+            // 修改info中的imgNum
+            _gInfo.imgNum = newImgNum;
+            // 修改info中的addr
+            _gInfo.addr = startAddr + offsetAddr;
+            offsetAddr += _gInfo.imgSize;
+            // 加入到map中
+            this.data.set(newImgNum, { graphicInfo: _gInfo, graphic: _g });
+            // 写入到buffer中
+            gInfoBufferList.push(_gInfo.buffer);
+            gBufferList.push(_g.buffer);
+        }
+        this.graphicBuffer = Buffer.concat([this.graphicBuffer, ...gBufferList]);
+        this.graphicInfoBuffer = Buffer.concat([this.graphicInfoBuffer, ...gInfoBufferList]);
+
+        return this;
+    }
+
+    /**
+     * 删除图片
+     * @param {Number} imgNum 图片编号
+     * @returns 
+     */
+    deleteGraphic(imgNum) {
+        let _data = this.getDataByImgNum(imgNum);
+        if (!_data) {
+            console.log(`imgNum [${imgNum}] 不存在`);
+            return this;
+        }
+        // 查找该图片的addr, size
+        let offsetAddr = _data.graphicInfo.imgSize;
+        let startAddr = _data.graphicInfo.addr;
+        let endAddr = _data.graphicInfo.addr + offsetAddr;
+        // 从graphicBuffer中删除数据
+        let part0 = this.graphicBuffer.slice(0, startAddr);
+        let part1 = this.graphicBuffer.slice(endAddr, this.graphicBuffer.length);
+        this.graphicBuffer = Buffer.concat([part0, part1]);
+        part0 = null;
+        part1 = null;
+
+        // 从graphicInfoBuffer中删除数据
+        let infoPart0 = this.graphicInfoBuffer.slice(0, _data.graphicInfo.selfAddr);
+        let infoPart1 = this.graphicInfoBuffer.slice(_data.graphicInfo.selfAddr + 40, this.graphicInfoBuffer.length);
+        let restLen = infoPart1.length / 40;
+        // 更新之后info中的addr
+        for (let i = 0; i < restLen; i++) {
+            let tmpGInfo = new GraphicInfo(infoPart1.slice(i * 40, i * 40 + 40));
+            tmpGInfo.addr -= offsetAddr;
+        }
+        this.graphicInfoBuffer = Buffer.concat([infoPart0, infoPart1]);
+        infoPart0 = null;
+        infoPart1 = null;
+
+        // 更新map
+        this.updateMap();
+
+        return this;
+    }
+
+    /**
+     * 删除多张图片
+     * @param {Array} imgList 图片编号数组
+     */
+    deleteMultGraphic(imgList) {
+        for (let i = 0; i < imgList.length; i++) {
+            this.deleteGraphic(imgList[i]);
+        }
+        return this;
+    }
+
+    /**
+     * 修改图片
+     * @param {Number} imgNum 图片编号
+     * @param {Object} options {imgNum, offsetX, offsetY, areaX, areaY, canMove, mapId}
+     * @returns 
+     */
+    setGraphicInfo(imgNum, options) {
+        let _data = this.getDataByImgNum(imgNum);
+        if (!_data) {
+            console.log(`imgNum [${imgNum}] 不存在`);
+            return this;
+        }
+
+        let _info = _data.graphicInfo;
+
+        // 不能简单的用1元运算符判断, 因为有可能传入0
+        if(options.imgNum >= 0){
+            // 检查是否有编号冲突
+            let has = this.getDataByImgNum(options.imgNum);
+            if(has){
+                console.log(`编号冲突: [${options.imgNum}]已存在`);
+            }else{
+                _info.imgNum = options.imgNum;
+            }
+        }
+        
+        _info.offsetX = typeof options?.offsetX == 'number' ? options.offsetX : _info.offsetX;
+        _info.offsetY = typeof options?.offsetY == 'number' ? options.offsetY : _info.offsetY;
+        _info.areaX = typeof options?.areaX == 'number' ? options.areaX : _info.areaX;
+        _info.areaY = typeof options?.areaY == 'number' ? options.areaY : _info.areaY;
+        _info.canMove = typeof options?.canMove == 'number' ? options.canMove : _info.canMove;
+        _info.mapId = typeof options?.mapId == 'number' ? options.mapId : _info.mapId;
+
+        return this;
+    }
+
+    /**
+     * 保存文件
+     * @param {String} gPath graphic文件地址, 默认原地址
+     * @param {String} gInfoPath graphicInfo文件地址, 默认原地址
+     * @returns 
+     */
+    save(gPath = null, gInfoPath = null) {
+        gPath = gPath || this.graphicPath;
+        gInfoPath = gInfoPath || this.graphicInfoPath;
+        fs.writeFileSync(gPath, this.graphicBuffer);
+        fs.writeFileSync(gInfoPath, this.graphicInfoBuffer);
         return this;
     }
 }
@@ -777,8 +1013,8 @@ class Graphic {
 
         if (colorIdx >= 0) {
             // 如果找到了色值, 则将调色板中这组色值改为alphaColor的色值
-            for(let i=0; i<4;i++){
-                bgraBuffer[colorIdx*4+i] = changeColor[i];
+            for (let i = 0; i < 4; i++) {
+                bgraBuffer[colorIdx * 4 + i] = changeColor[i];
             }
         }
 
@@ -923,7 +1159,7 @@ class Graphic {
 /** TODO: 动画文件类
  * 本类接收两个参数, 一个是动画信息文件, 一个是动画数据文件, 均为通过fs.readFileSync读取的十六进制数据
  */
-class A {
+class AFile {
     constructor(infoBuffer, dataBuffer) {
         this.animeInfoBuffer = infoBuffer;
         this.animeBuffer = dataBuffer;
@@ -1249,7 +1485,7 @@ class Cgp {
         }
 
         let bgr = this.bgr;
-        for(let i=0;i<3;i++){
+        for (let i = 0; i < 3; i++) {
             let colorValue = colorArray[i];
             if (colorValue < 0 || colorValue > 255) {
                 throw `wrong colorValue: ${colorValue}`;
@@ -1261,7 +1497,7 @@ class Cgp {
     }
 
     setBGRA(index, colorArray) {
-        console.log({index, colorArray});
+        console.log({ index, colorArray });
         if (colorArray.length !== 4) {
             throw `wrong colorArray length: ${colorArray.length}`;
         }
@@ -1364,6 +1600,6 @@ function cgpInit() {
 
 
 
-module.exports = { G, GraphicInfo, Graphic, A, AnimeInfo, Anime, Action, Frame, DecodeBuffer: BufferExt, Cgp }
+module.exports = { GFile, GraphicInfo, Graphic, AFile, AnimeInfo, Anime, Action, Frame, DecodeBuffer: BufferExt, Cgp }
 
 

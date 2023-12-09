@@ -17,7 +17,7 @@ function log(str, type = 'main') {
 }
 
 
-const { GraphicInfo, Graphic, AnimeInfo, Anime, Action, Frame, G, A } = require('./modules/base');
+const { GraphicInfo, Graphic, AnimeInfo, Anime, Action, Frame, GFile, AFile } = require('./modules/base');
 const { resourceLimits } = require('worker_threads');
 
 
@@ -1324,13 +1324,49 @@ const RootPath = 'D:/MLTools/图档';
 
 
 // EXP: 测试G类
-// let gBuffer = fs.readFileSync('./bin/108303_3/Graphic_PUK2_2.bin');
-// let gInfoBuffer = fs.readFileSync('./bin/108303_3/GraphicInfo_PUK2_2.bin');
-// let g = new G(gInfoBuffer, gBuffer);
-// g.setStartNum(1255);
-// g.setOffsetAddr(5000);
-// console.log(g.getDataByImgNum(1255));
-// console.log(g.getDataByIndex(1));
+// let g = new GFile(gPath, gInfoPath);
+
+// // 将0-9号图片写入文件1
+// let imgList = [];
+// for(let i=0;i<10;i++){
+//     imgList.push(i);
+// }
+// g.exportMultGraphic(imgList, './output/tmp2');
+
+// // 将0号图片写入文件2
+// g.exportGraphic(0, './output/tmp2');
+
+// // 释放g
+// g.release();
+
+// // 读取文件1
+// g = new GFile('./output/tmp2/Graphic_0-9.bin', './output/tmp2/GraphicInfo_0-9.bin');
+
+// // 将文件2追加到文件1
+// let addGInfoBuffer = fs.readFileSync('./output/tmp2/GraphicInfo_0.bin');
+// let addGBuffer = fs.readFileSync('./output/tmp2/Graphic_0.bin');
+// g.addGraphic(addGInfoBuffer, addGBuffer).save();
+
+// // 删除文件2
+// fs.unlinkSync('./output/tmp2/Graphic_0.bin');
+// fs.unlinkSync('./output/tmp2/GraphicInfo_0.bin');
+
+// // 删除文件1中的第一张图片0
+// g.deleteGraphic(0).save();
+
+// // 删除文件1中的7,8,9三张图片
+// g.deleteMultGraphic([7,8,9]).save();
+
+// // 修改文件1中的图片10的信息, imgNum, offsetX|offsetY, canMove, areaX|areaY
+// g.setGraphicInfo(10, {
+//     imgNum: 0,
+//     offsetX: 0,
+//     offsetY: 0,
+//     areaX: 2,
+//     areaY: 2,
+//     canMove: 1,
+//     mapId: 10086
+// }).save();
 
 
 
