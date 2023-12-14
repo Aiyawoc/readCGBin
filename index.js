@@ -1190,7 +1190,7 @@ const RootPath = 'D:/MLTools/图档';
 
 //     let pArr = [];
 //     let tArr = [];
-//     for (let i = 0; i < 10; i++) {
+//     for (let i = 392; i < 591; i++) {
 //         tArr.push(i);
 //     }
 
@@ -1367,6 +1367,30 @@ const RootPath = 'D:/MLTools/图档';
 //     canMove: 1,
 //     mapId: 10086
 // }).save();
+
+
+// EXP: 测试AFile类
+let a = new AFile(gPath, gInfoPath, aPath, aInfoPath);
+// console.log(a);
+
+// 1. 导出动画0到文件1
+a.exportAnime(110505, true, './output/tmp3');
+
+// 2. 批量导出动画0-10到文件2
+
+// 3. 释放a
+
+// 4. 实例化文件2
+
+// 5. 将文件1追加到文件2
+
+// 6. 删除文件1
+
+// 7. 删除文件2中的动画0
+
+// 8. 删除文件2中的动画3,4,5
+
+// 9. 修改文件2中的动画10信息
 
 
 
