@@ -351,16 +351,59 @@ class GFile {
         return this;
     }
 
-    /** TODO: 删除多张图片方法待优化, 多次单张删除速度极慢
-     * 删除多张图片
+    /** 
+     * 删除多张图片, 如果图片非连续, 则速度较慢
      * @param {Array} imgList 图片编号数组
      */
     deleteMultGraphic(imgList) {
-        console.log(`共需要删除[${imgList.length}]张图片`);
-        for (let i = 0; i < imgList.length; i++) {
-            console.log(`开始删除图片: [${imgList[i]}], ${i}/${imgList.length}`);
-            this.deleteGraphic(imgList[i]);
+        // 判断图片编号是否连续
+        let diff = 0;
+        for(let i=1;i<imgList.length;i++){
+            let val = imgList[i] - imgList[i-1];
+            if(val > diff){
+                diff = val;
+            }
         }
+
+        if(diff == 1){
+            // 连续图片, 计算图片起始结束地址, 集中删除
+            let startData = this.getDataByImgNum(imgList[0]);
+            let endData = this.getDataByImgNum(imgList[imgList.length-1]);
+            let startAddr = startData.graphicInfo.addr;
+            let endAddr = endData.graphicInfo.addr + endData.graphicInfo.imgSize;
+            let offsetAddr = endAddr - startAddr;
+            // 从graphicBuffer中删除数据
+            let part0 = this.graphicBuffer.slice(0, startAddr);
+            let part1 = this.graphicBuffer.slice(endAddr, this.graphicBuffer.length);
+            this.graphicBuffer = Buffer.concat([part0, part1]);
+            part0 = null;
+            part1 = null;
+            // 从graphicInfoBuffer中删除数据
+            let infoPart0 = this.graphicInfoBuffer.slice(0, startData.graphicInfo.selfAddr);
+            let infoPart1 = this.graphicInfoBuffer.slice(endData.graphicInfo.selfAddr + 40, this.graphicInfoBuffer.length);
+            let restLen = infoPart1.length / 40;
+            // 更新之后info中的addr
+            for (let i = 0; i < restLen; i++) {
+                let tmpGInfo = new GraphicInfo(infoPart1.slice(i * 40, i * 40 + 40));
+                tmpGInfo.addr -= offsetAddr;
+            }
+            this.graphicInfoBuffer = Buffer.concat([infoPart0, infoPart1]);
+            infoPart0 = null;
+            infoPart1 = null;
+
+            // 更新map
+            this.updateMap();
+
+        }else{
+            // 非连续图片, 批量单条删除
+            console.log(`图片非连续, 速度较慢, 共需要删除[${imgList.length}]张图片`);
+            for (let i = 0; i < imgList.length; i++) {
+                console.log(`开始删除图片: [${imgList[i]}], ${i+1}/${imgList.length}`);
+                this.deleteGraphic(imgList[i]);
+            }
+
+        }
+
         return this;
     }
 
@@ -1439,11 +1482,12 @@ class AFile {
         return this;
     }
 
-    /** TODO: 删除动画
-     * 
+    /**
+     * 删除动画
      * @param {Number} animeId 动画ID
+     * @param {Boolean} delGraphic 是否删除对应图片, 默认是, 注意:删除对应图片后, 使用[魔力全图档查看器]会导致目标动画之后的动画显示错乱, 但进游戏中是正常的
      */
-    deleteAnime(animeId) {
+    deleteAnime(animeId, delGraphic=true) {
         let _aData = this.getDataByAnimeId(animeId);
 
         if (!_aData) {
@@ -1451,12 +1495,11 @@ class AFile {
             return this;
         }
 
-        console.log(`开始删除动画 [${animeId}]`);
-
         // NOTE: 魔力全图档查看器中读取动画时, 没有按真实的图片编号读取, 而是按照从0开始的顺序, 待测试游戏中是否如此, 如果真是如此, 则删除动画档时, 要么不删除图档, 要么把图档改为空图档, 以减小体积
         // 删除图片
-        this.gFile.deleteMultGraphic(_aData.anime.imgList);
-        console.log('图片删除完成');
+        if(delGraphic){
+            this.gFile.deleteMultGraphic(_aData.anime.imgList);
+        }
 
         // 删除动画buffer
         let offsetAddr = _aData.anime.buffer.length;
