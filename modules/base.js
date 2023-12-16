@@ -1529,21 +1529,41 @@ class AFile {
         return this;
     }
 
-    /** TODO: 批量删除动画
-     * 
+    /**
+     * 批量删除动画
      * @param {Array} animeIdList 动画ID数组
+     * @param {Boolean} delGraphic 是否删除对应图片, 默认是, 注意:删除对应图片后, 使用[魔力全图档查看器]会导致目标动画之后的动画显示错乱, 但进游戏中是正常的
      */
-    deleteMultAnime(animeIdList) {
-
+    deleteMultAnime(animeIdList, delGraphic=true) {
+        for(let i=0;i<animeIdList.length;i++){
+            this.deleteAnime(animeIdList[i], delGraphic);
+        }
         return this;
     }
 
-    /** TODO: 修改动画信息
-     * 
+    /** 
+     * 修改动画信息
      * @param {Number} animeId 动画ID
-     * @param {Object} options {}
+     * @param {Object} options {animeId}
      */
-    setAnimeInfo(animeId, options) { }
+    setAnimeInfo(animeId, options) {
+        let _aData = this.getDataByAnimeId(animeId);
+        if (!_aData) {
+            console.log(`imgNum [${imgNum}] 不存在`);
+            return this;
+        }
+
+        if(options.animeId >= 0){
+            let has = this.getDataByAnimeId(options.animeId);
+            if(has){
+                console.log(`编号冲突: [${options.animeId}]已存在`);
+            }else{
+                _aData.animeInfo.animeId = options.animeId;
+            }
+        }
+
+        return this;
+    }
 
     /**
      * 保存文件

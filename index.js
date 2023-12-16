@@ -1369,14 +1369,6 @@ const RootPath = 'D:/MLTools/图档';
 // }).save();
 
 
-let a = new AFile(gPath, gInfoPath, aPath, aInfoPath);
-a.deleteAnime(160091).save(
-    './output/tmp4/Graphic_PUK3_1.bin',
-    './output/tmp4/GraphicInfo_PUK3_1.bin',
-    './output/tmp4/Anime_PUK3_2.bin',
-    './output/tmp4/AnimeInfo_PUK3_2.bin'
-);
-
 
 
 // // EXP: 测试AFile类
@@ -1442,14 +1434,15 @@ a.deleteAnime(160091).save(
 
 
 // // 7. 删除文件6中的第一个动画
-// a6.deleteAnime(110550).save();
+// a6.deleteAnime(110550, false).save();
 
 // // 8. 删除文件6中的动画[110553, 110554, 110552]
+// let delList = [110553, 110554, 110552];
+// a6.deleteMultAnime(delList, false).save();
 
-// // 9. 删除文件6中的最后一个动画
 
-// // 10. 修改文件6中的动画 110551 的信息
-
+// // 9. 修改文件6中的动画 110555 的信息   
+// a6.setAnimeInfo(110555, {animeId:110552}).save();
 
 
 // EXP: 将120099的数据写入目标文件中
