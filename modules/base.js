@@ -263,7 +263,7 @@ class GFile {
      * @param {GFile} gFile 待追加的图片文件 
      * @param {Number} startNum 起始编号, 默认为最后一张图片的编号+1
      */
-    addGraphic(gFile, startNum = null){
+    addGraphic(gFile, startNum = null) {
         // 如果未传入startNum, 则获取起始Num
         startNum = startNum || this.lastNode.graphicInfo.imgNum + 1;
         // 获取起始addr
@@ -274,7 +274,7 @@ class GFile {
         let gBufferList = [];
 
         let keys = Array.from(gFile.data.keys());
-        for(let i=0;i<keys.length;i++){
+        for (let i = 0; i < keys.length; i++) {
             let newImgNum = startNum + i;
             // 检测startNum是否冲突
             if (this.getDataByImgNum(newImgNum)) {
@@ -291,7 +291,7 @@ class GFile {
             // 修改_gInfo中的addr
             _gInfo.addr = startAddr + offsetAddr;
             offsetAddr += _gInfo.imgSize;
-            
+
             // 将_gInfo, _g的buffer保存到数组中
             gInfoBufferList.push(_gInfo.buffer);
             gBufferList.push(_g.buffer);
@@ -351,12 +351,14 @@ class GFile {
         return this;
     }
 
-    /**
+    /** TODO: 删除多张图片方法待优化, 多次单张删除速度极慢
      * 删除多张图片
      * @param {Array} imgList 图片编号数组
      */
     deleteMultGraphic(imgList) {
+        console.log(`共需要删除[${imgList.length}]张图片`);
         for (let i = 0; i < imgList.length; i++) {
+            console.log(`开始删除图片: [${imgList[i]}], ${i}/${imgList.length}`);
             this.deleteGraphic(imgList[i]);
         }
         return this;
@@ -1400,7 +1402,7 @@ class AFile {
         for (let i = 0; i < keys.length; i++) {
             let newAnimeId = startNum + i;
             // 检测newAnimeId是否已存在
-            if(this.getDataByAnimeId(newAnimeId)){
+            if (this.getDataByAnimeId(newAnimeId)) {
                 throw new Error(`动画编号${newAnimeId}已存在`);
             }
 
@@ -1414,9 +1416,9 @@ class AFile {
             offsetAddr += _anime.buffer.length;
 
             // 修改anime中的frame中的图片编号
-            for(let j=0; j<_anime.actions.length; j++){
+            for (let j = 0; j < _anime.actions.length; j++) {
                 let _action = _anime.actions[j];
-                for(let k=0; k<_action.frames.length; k++){
+                for (let k = 0; k < _action.frames.length; k++) {
                     let _frame = _action.frames[k];
                     _frame.imgNum = imgNumDictionary[_frame.imgNum];
                 }
@@ -1437,12 +1439,77 @@ class AFile {
         return this;
     }
 
-    deleteAnime() { }
+    /** TODO: 删除动画
+     * 
+     * @param {Number} animeId 动画ID
+     */
+    deleteAnime(animeId) {
+        let _aData = this.getDataByAnimeId(animeId);
 
-    deleteMultAnime() { }
+        if (!_aData) {
+            console.log(`animeID: [${animeId}] 不存在`);
+            return this;
+        }
 
-    setAnimeInfo() { }
+        console.log(`开始删除动画 [${animeId}]`);
 
+        // NOTE: 魔力全图档查看器中读取动画时, 没有按真实的图片编号读取, 而是按照从0开始的顺序, 待测试游戏中是否如此, 如果真是如此, 则删除动画档时, 要么不删除图档, 要么把图档改为空图档, 以减小体积
+        // 删除图片
+        this.gFile.deleteMultGraphic(_aData.anime.imgList);
+        console.log('图片删除完成');
+
+        // 删除动画buffer
+        let offsetAddr = _aData.anime.buffer.length;
+        let animeStartAddr = _aData.animeInfo.addr;
+        let animeEndAddr = _aData.animeInfo.addr + offsetAddr;
+        let part0 = this.animeBuffer.slice(0, animeStartAddr);
+        let part1 = this.animeBuffer.slice(animeEndAddr, this.animeBuffer.length);
+        this.animeBuffer = Buffer.concat([part0, part1]);
+        part0 = null;
+        part1 = null;
+
+        // 删除infoBuffer, 并更新之后的info中的addr
+        let infoPart0 = this.animeInfoBuffer.slice(0, _aData.animeInfo.selfAddr);
+        let infoPart1 = this.animeInfoBuffer.slice(_aData.animeInfo.selfAddr + 12, this.animeInfoBuffer.length);
+        let restLen = infoPart1.length / 12;
+        for (let i = 0; i < restLen; i++) {
+            let tmpAInfo = new AnimeInfo(infoPart1.slice(i*12, i*12+12));
+            tmpAInfo.addr -= offsetAddr;
+        }
+        this.animeInfoBuffer = Buffer.concat([infoPart0, infoPart1]);
+        infoPart0 = null;
+        infoPart1 = null;
+
+        // 更新map
+        this.updateMap();
+
+        return this;
+    }
+
+    /** TODO: 批量删除动画
+     * 
+     * @param {Array} animeIdList 动画ID数组
+     */
+    deleteMultAnime(animeIdList) {
+
+        return this;
+    }
+
+    /** TODO: 修改动画信息
+     * 
+     * @param {Number} animeId 动画ID
+     * @param {Object} options {}
+     */
+    setAnimeInfo(animeId, options) { }
+
+    /**
+     * 保存文件
+     * @param {String} gPath graphic文件地址, 默认原地址
+     * @param {String} gInfoPath graphicInfo文件地址, 默认原地址
+     * @param {String} aPath anime文件地址, 默认原地址
+     * @param {String} aInfoPath animeInfo文件地址, 默认原地址
+     * @returns 
+     */
     save(gPath = null, gInfoPath = null, aPath = null, aInfoPath = null) {
         this.gFile.save(gPath, gInfoPath);
         aPath = aPath || this.animePath;

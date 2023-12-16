@@ -1369,71 +1369,86 @@ const RootPath = 'D:/MLTools/图档';
 // }).save();
 
 
-// EXP: 测试AFile类
 let a = new AFile(gPath, gInfoPath, aPath, aInfoPath);
-
-// 1. 导出多个动画文件
-a.exportAnime(110505, './output/tmp3');
-
-a.exportAnime(110520, './output/tmp3');
-
-a.exportAnime(110526, './output/tmp3');
-
-a.exportAnime(110532, './output/tmp3');
-
-a.exportAnime(110544, './output/tmp3');
-
-a.exportAnime(110550, './output/tmp3');
-
-// 3. 释放a
-a.release();
-
-// 4. 实例化文件1, 2-6
-let f1GPath = './output/tmp3/Graphic_110505.bin';
-let f1GInfoPath = './output/tmp3/GraphicInfo_110505.bin';
-let f1APath = './output/tmp3/Anime_110505.bin';
-let f1AInfoPath = './output/tmp3/AnimeInfo_110505.bin';
-let a1 = new AFile(f1GPath, f1GInfoPath, f1APath, f1AInfoPath);
-
-// 5. 将文件2-5追加到文件1, 并删除文件2-5
-let list = [110520, 110526, 110532, 110544];
-for(let i=0;i<list.length;i++){
-    let f2GPath = `./output/tmp3/Graphic_${list[i]}.bin`;
-    let f2GInfoPath = `./output/tmp3/GraphicInfo_${list[i]}.bin`;
-    let f2APath = `./output/tmp3/Anime_${list[i]}.bin`;
-    let f2AInfoPath = `./output/tmp3/AnimeInfo_${list[i]}.bin`;
-    let _a = new AFile(f2GPath, f2GInfoPath, f2APath, f2AInfoPath);
-    a1.addAnime(_a);
-
-    _a.release();
-
-    fs.unlinkSync(f2GPath);
-    fs.unlinkSync(f2GInfoPath);
-    fs.unlinkSync(f2APath);
-    fs.unlinkSync(f2AInfoPath);
-}
-
-a1.save();
-
-// 6. 将文件1追加到文件6, 并删除文件1
-let f6GPath = './output/tmp3/Graphic_110550.bin';
-let f6GInfoPath = './output/tmp3/GraphicInfo_110550.bin';
-let f6APath = './output/tmp3/Anime_110550.bin';
-let f6AInfoPath = './output/tmp3/AnimeInfo_110550.bin';
-let a6 = new AFile(f6GPath, f6GInfoPath, f6APath, f6AInfoPath);
-a6.addAnime(a1).save();
-
-fs.unlinkSync(f1GPath);
-fs.unlinkSync(f1GInfoPath);
-fs.unlinkSync(f1APath);
-fs.unlinkSync(f1AInfoPath);
+a.deleteAnime(160091).save(
+    './output/tmp4/Graphic_PUK3_1.bin',
+    './output/tmp4/GraphicInfo_PUK3_1.bin',
+    './output/tmp4/Anime_PUK3_2.bin',
+    './output/tmp4/AnimeInfo_PUK3_2.bin'
+);
 
 
-// 7. 删除文件1中的动画0
 
-// 8. 删除文件1中的动画3,4,5
+// // EXP: 测试AFile类
+// let a = new AFile(gPath, gInfoPath, aPath, aInfoPath);
 
-// 9. 修改文件1中的动画10信息
+// // 1. 导出多个动画文件
+// a.exportAnime(110505, './output/tmp3');
+
+// a.exportAnime(110520, './output/tmp3');
+
+// a.exportAnime(110526, './output/tmp3');
+
+// a.exportAnime(110532, './output/tmp3');
+
+// a.exportAnime(110544, './output/tmp3');
+
+// a.exportAnime(110550, './output/tmp3');
+
+// // 3. 释放a
+// a.release();
+
+// // 4. 实例化文件1, 2-6
+// let f1GPath = './output/tmp3/Graphic_110505.bin';
+// let f1GInfoPath = './output/tmp3/GraphicInfo_110505.bin';
+// let f1APath = './output/tmp3/Anime_110505.bin';
+// let f1AInfoPath = './output/tmp3/AnimeInfo_110505.bin';
+// let a1 = new AFile(f1GPath, f1GInfoPath, f1APath, f1AInfoPath);
+
+// // 5. 将文件2-5追加到文件1, 并删除文件2-5
+// let list = [110520, 110526, 110532, 110544];
+// for(let i=0;i<list.length;i++){
+//     let f2GPath = `./output/tmp3/Graphic_${list[i]}.bin`;
+//     let f2GInfoPath = `./output/tmp3/GraphicInfo_${list[i]}.bin`;
+//     let f2APath = `./output/tmp3/Anime_${list[i]}.bin`;
+//     let f2AInfoPath = `./output/tmp3/AnimeInfo_${list[i]}.bin`;
+//     let _a = new AFile(f2GPath, f2GInfoPath, f2APath, f2AInfoPath);
+//     a1.addAnime(_a);
+
+//     _a.release();
+
+//     fs.unlinkSync(f2GPath);
+//     fs.unlinkSync(f2GInfoPath);
+//     fs.unlinkSync(f2APath);
+//     fs.unlinkSync(f2AInfoPath);
+// }
+
+// a1.save();
+
+// // 6. 将文件1追加到文件6, 并删除文件1
+// let f6GPath = './output/tmp3/Graphic_110550.bin';
+// let f6GInfoPath = './output/tmp3/GraphicInfo_110550.bin';
+// let f6APath = './output/tmp3/Anime_110550.bin';
+// let f6AInfoPath = './output/tmp3/AnimeInfo_110550.bin';
+// let a6 = new AFile(f6GPath, f6GInfoPath, f6APath, f6AInfoPath);
+// a6.addAnime(a1).save();
+
+// fs.unlinkSync(f1GPath);
+// fs.unlinkSync(f1GInfoPath);
+// fs.unlinkSync(f1APath);
+// fs.unlinkSync(f1AInfoPath);
+
+// a1.release();
+
+
+// // 7. 删除文件6中的第一个动画
+// a6.deleteAnime(110550).save();
+
+// // 8. 删除文件6中的动画[110553, 110554, 110552]
+
+// // 9. 删除文件6中的最后一个动画
+
+// // 10. 修改文件6中的动画 110551 的信息
 
 
 
