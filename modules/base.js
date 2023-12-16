@@ -9,6 +9,13 @@
  * 其中, 一个Anime是由若干个Action组成, 每个Action中包含一个头和若干个Frame
  */
 
+/** TODO: APP流程
+ * 0. app启动时, 设置bin目录 
+ * 1. 读取所有info文件作为索引
+ * 2. 用户选择版本文件时, 读取对应文件进入缓存
+ * 
+ */
+
 const { info } = require('console');
 const fs = require('fs');
 const Path = require('path');
@@ -59,8 +66,8 @@ class GFile {
             let data = { graphicInfo, graphic };
             this.data.set(graphicInfo.imgNum, data);
             this.lastNode = data;
-            if(graphicInfo.mapId > 0){
-                this.mapIds[graphicInfo.mapId] = this.mapIds[graphicInfo.mapId]? this.mapIds[graphicInfo.mapId]+`|${graphicInfo.imgNum}`:`${graphicInfo.imgNum}`;
+            if (graphicInfo.mapId > 0) {
+                this.mapIds[graphicInfo.mapId] = this.mapIds[graphicInfo.mapId] ? this.mapIds[graphicInfo.mapId] + `|${graphicInfo.imgNum}` : `${graphicInfo.imgNum}`;
             }
         }
     }
@@ -130,7 +137,7 @@ class GFile {
      * @param {String} path 保存路径
      * @param {String} name 自定义文件中间名, 默认使用图片编号
      */
-    exportGraphic(imgNum, path, name=null) {
+    exportGraphic(imgNum, path, name = null) {
         let data = this.getDataByImgNum(imgNum);
         if (!data) {
             throw `not found [${imgNumList[i]}]`
@@ -160,7 +167,7 @@ class GFile {
      * @param {String} path 保存路径
      * @param {String} name 自定义文件中间名, 默认使用图片编号
      */
-    exportMultGraphic(imgNumList, path, name=null) {
+    exportMultGraphic(imgNumList, path, name = null) {
         // 查找目标图片数据
         // 深拷贝graphicInfo, 修改addr, 修改imgNum, 加入待写入数组
         let writeGraphicInfoList = [];
@@ -203,7 +210,7 @@ class GFile {
      * @param {Number} startNum 起始编号, 默认为最后一张图片的编号+1
      * @returns 
      */
-    addGraphic(graphicInfoBuffer, graphicBuffer, startNum = null) {
+    addGraphicByBuffer(graphicInfoBuffer, graphicBuffer, startNum = null) {
         // 如果未传入startNum, 则获取起始Num
         startNum = startNum || this.lastNode.graphicInfo.imgNum + 1;
         // 获取起始addr
@@ -217,6 +224,7 @@ class GFile {
         }
         let len = graphicInfoBuffer.length / 40;
         let offsetAddr = 0;
+        let imgNumDictionary = {};
         for (let i = 0; i < len; i++) {
             let _gInfo = new GraphicInfo(graphicInfoBuffer.slice(i * 40, i * 40 + 40));
             let _g = new Graphic(graphicBuffer.slice(_gInfo.addr, _gInfo.addr + _gInfo.imgSize));
@@ -227,6 +235,7 @@ class GFile {
                 throw `imgNum [${newImgNum}] 已存在`
             }
             // 修改info中的imgNum
+            imgNumDictionary[_gInfo.imgNum] = newImgNum;
             _gInfo.imgNum = newImgNum;
             // 修改info中的addr
             _gInfo.addr = startAddr + offsetAddr;
@@ -237,8 +246,66 @@ class GFile {
             gInfoBufferList.push(_gInfo.buffer);
             gBufferList.push(_g.buffer);
         }
+
         this.graphicBuffer = Buffer.concat([this.graphicBuffer, ...gBufferList]);
         this.graphicInfoBuffer = Buffer.concat([this.graphicInfoBuffer, ...gInfoBufferList]);
+
+        // 更新map
+        this.updateMap();
+
+        // 临时增加的图片编号字典
+        this.imgNumDictionary = imgNumDictionary;
+        return this;
+    }
+
+    /**
+     * 追加图片, 支持多张
+     * @param {GFile} gFile 待追加的图片文件 
+     * @param {Number} startNum 起始编号, 默认为最后一张图片的编号+1
+     */
+    addGraphic(gFile, startNum = null){
+        // 如果未传入startNum, 则获取起始Num
+        startNum = startNum || this.lastNode.graphicInfo.imgNum + 1;
+        // 获取起始addr
+        let startAddr = this.graphicBuffer.length;
+        let offsetAddr = 0;
+        let imgNumDictionary = {};
+        let gInfoBufferList = [];
+        let gBufferList = [];
+
+        let keys = Array.from(gFile.data.keys());
+        for(let i=0;i<keys.length;i++){
+            let newImgNum = startNum + i;
+            // 检测startNum是否冲突
+            if (this.getDataByImgNum(newImgNum)) {
+                throw `imgNum [${newImgNum}] 已存在`
+            }
+
+            let _data = gFile.data.get(keys[i]);
+            let _gInfo = _data.graphicInfo;
+            let _g = _data.graphic;
+
+            // 修改_gInfo的imgNum
+            imgNumDictionary[_gInfo.imgNum] = newImgNum;
+            _gInfo.imgNum = newImgNum;
+            // 修改_gInfo中的addr
+            _gInfo.addr = startAddr + offsetAddr;
+            offsetAddr += _gInfo.imgSize;
+            
+            // 将_gInfo, _g的buffer保存到数组中
+            gInfoBufferList.push(_gInfo.buffer);
+            gBufferList.push(_g.buffer);
+        }
+
+        // 将 gBufferList, gInfoBufferList 追加到this.graphicBuffer, this.graphicInfoBuffer中
+        this.graphicBuffer = Buffer.concat([this.graphicBuffer, ...gBufferList]);
+        this.graphicInfoBuffer = Buffer.concat([this.graphicInfoBuffer, ...gInfoBufferList]);
+
+        // 更新map
+        this.updateMap();
+
+        // 临时增加的图片编号字典
+        this.imgNumDictionary = imgNumDictionary;
 
         return this;
     }
@@ -1206,7 +1273,7 @@ class AFile {
             let animeInfo = new AnimeInfo(this.animeInfoBuffer.slice(i * 12, i * 12 + 12), i);
             let startAddr = animeInfo.addr;
             let endAddr = null;
-            if (i < this.length - 2) {
+            if (i <= this.length - 2) {
                 endAddr = new AnimeInfo(this.animeInfoBuffer.slice((i + 1) * 12, (i + 1) * 12 + 12), i + 1).addr;
             }
 
@@ -1214,7 +1281,7 @@ class AFile {
 
             let anime = new Anime(this.animeBuffer.slice(startAddr, endAddr));
 
-            let _data = {animeInfo, anime};
+            let _data = { animeInfo, anime };
             this.data.set(animeInfo.animeId, _data);
             this.lastNode = _data;
         }
@@ -1246,15 +1313,15 @@ class AFile {
     getDataByAnimeId(animeId) {
         return this.data.get(animeId);
     }
-    
-    /** TODO: 导出动画
+
+    /** 导出动画
      * 
-     * @param {*} animeId 
+     * @param {Number} animeId 动画ID
      */
-    exportAnime(animeId, repairPalette=true,  path){
+    exportAnime(animeId, path) {
         // 找到动画信息, 通过动画信息中的addr找到动画数据, 通过动画数据中的imgNum找到图片数据, 通过图片数据中的addr找到图片数据
         let aData = this.getDataByAnimeId(animeId);
-        
+
         // 图片从0开始排, 动画帧中的图片编号也从0开始排
         // 动画编号不变, 动画addr重排, 动画帧图片重排, 图片重排
 
@@ -1267,14 +1334,15 @@ class AFile {
         fs.writeFileSync(aInfoPath, writeAinfo.buffer);
 
         // TODO: 2. 获取要提取的图片, 查找调色板文件
-        
+        // NOTE: 有些图片调色板存在其它文件中, 需要遍历全部gInfo文件, 将调色板图片做好索引
+
         // 将所需图片数据保存到新的图片数据文件
         // console.log(aData.anime.imgList);
         this.gFile.exportMultGraphic(aData.anime.imgList, path, animeId);
 
         // TODO: 2.5 创建一个字典, 存储图片编号和图片数据的对应关系, 用于修改动画帧中的图片编号
         let imgNumDictionary = {};
-        for(let i=0;i<aData.anime.imgList.length;i++){
+        for (let i = 0; i < aData.anime.imgList.length; i++) {
             imgNumDictionary[aData.anime.imgList[i]] = i;
         }
 
@@ -1283,9 +1351,9 @@ class AFile {
         aData.anime.buffer.copy(writeABuffer);
         let writeA = new Anime(writeABuffer);
         // console.log(writeA);
-        for(let i=0;i<writeA.actions.length;i++){
+        for (let i = 0; i < writeA.actions.length; i++) {
             let action = writeA.actions[i];
-            for(let j=0;j<action.frames.length;j++){
+            for (let j = 0; j < action.frames.length; j++) {
                 let frame = action.frames[j];
                 frame.imgNum = imgNumDictionary[frame.imgNum];
             }
@@ -1293,21 +1361,96 @@ class AFile {
 
         let aPath = Path.join(path, `Anime_${animeId}.bin`);
         fs.writeFileSync(aPath, writeA.buffer);
+
+        return this;
     }
 
-    exportMultAnime(animeIdList, path){
+    /** TODO: 批量导出动画
+     * 
+     * @param {Array} animeIdList 动画ID数组
+     * @param {String} path 保存路径
+     */
+    exportMultAnime(animeIdList, path) {
 
+        return this;
     }
 
-    addAnime(){}
+    /** 添加动画
+     * @param {AFile} aFile 被添加的动画文件
+     * @param {Number} startNum 动画起始编号, 暂时需手动查询最大编号
+     * @returns 
+     */
+    addAnime(aFile, startNum) {
+        startNum = startNum || this.lastNode.animeInfo.animeId + 1;
 
-    deleteAnime(){}
+        // 1. 将图片数据合并到this.gFile中, 并获取图片编号对应字典
+        this.gFile.addGraphic(aFile.gFile);
 
-    deleteMultAnime(){}
+        let imgNumDictionary = this.gFile.imgNumDictionary;
 
-    setAnimeInfo(){}
+        // 2. 遍历aFile中的anime, 修改其frame中的图片编号
+        // 3. 遍历aFile中的animeInfo, 修改其中的animeId, addr
+        // 4. 将aFile中的animeBuffer, animeInfoBuffer 追加到this中
+        // 5. 更新map      updateMap()
+        let keys = Array.from(aFile.data.keys());
+        let aInfoBufferList = [];
+        let aBufferList = [];
+        let offsetAddr = 0;
+        let startAddr = this.animeBuffer.length;
+        for (let i = 0; i < keys.length; i++) {
+            let newAnimeId = startNum + i;
+            // 检测newAnimeId是否已存在
+            if(this.getDataByAnimeId(newAnimeId)){
+                throw new Error(`动画编号${newAnimeId}已存在`);
+            }
 
-    save(){}  
+            let _aData = aFile.getDataByAnimeId(keys[i]);
+            let _animeInfo = _aData.animeInfo;
+            let _anime = _aData.anime;
+
+            // 修改animeInfo中的animeId, addr
+            _animeInfo.animeId = newAnimeId;
+            _animeInfo.addr = startAddr + offsetAddr;
+            offsetAddr += _anime.buffer.length;
+
+            // 修改anime中的frame中的图片编号
+            for(let j=0; j<_anime.actions.length; j++){
+                let _action = _anime.actions[j];
+                for(let k=0; k<_action.frames.length; k++){
+                    let _frame = _action.frames[k];
+                    _frame.imgNum = imgNumDictionary[_frame.imgNum];
+                }
+            }
+
+            // 将_animeInfo, _anime的buffer保存到数组中
+            aInfoBufferList.push(_animeInfo.buffer);
+            aBufferList.push(_anime.buffer);
+        }
+
+        // 将aInfoBufferList, aBufferList追加到this.animeInfoBuffer, this.animeBuffer中
+        this.animeInfoBuffer = Buffer.concat([this.animeInfoBuffer, ...aInfoBufferList]);
+        this.animeBuffer = Buffer.concat([this.animeBuffer, ...aBufferList]);
+
+        // 更新map
+        this.updateMap();
+
+        return this;
+    }
+
+    deleteAnime() { }
+
+    deleteMultAnime() { }
+
+    setAnimeInfo() { }
+
+    save(gPath = null, gInfoPath = null, aPath = null, aInfoPath = null) {
+        this.gFile.save(gPath, gInfoPath);
+        aPath = aPath || this.animePath;
+        aInfoPath = aInfoPath || this.animeInfoPath;
+        fs.writeFileSync(aPath, this.animeBuffer);
+        fs.writeFileSync(aInfoPath, this.animeInfoBuffer);
+        return this;
+    }
 }
 
 

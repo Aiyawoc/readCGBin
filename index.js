@@ -1323,7 +1323,7 @@ const RootPath = 'D:/MLTools/图档';
 
 
 
-// EXP: 测试G类
+// // EXP: 测试G类
 // let g = new GFile(gPath, gInfoPath);
 
 // // 将0-9号图片写入文件1
@@ -1343,9 +1343,9 @@ const RootPath = 'D:/MLTools/图档';
 // g = new GFile('./output/tmp2/Graphic_0-9.bin', './output/tmp2/GraphicInfo_0-9.bin');
 
 // // 将文件2追加到文件1
-// let addGInfoBuffer = fs.readFileSync('./output/tmp2/GraphicInfo_0.bin');
-// let addGBuffer = fs.readFileSync('./output/tmp2/Graphic_0.bin');
-// g.addGraphic(addGInfoBuffer, addGBuffer).save();
+// let g2 = new GFile('./output/tmp2/Graphic_0.bin', './output/tmp2/GraphicInfo_0.bin');
+// g.addGraphic(g2).save();
+// console.log(g.imgNumDictionary);
 
 // // 删除文件2
 // fs.unlinkSync('./output/tmp2/Graphic_0.bin');
@@ -1371,26 +1371,69 @@ const RootPath = 'D:/MLTools/图档';
 
 // EXP: 测试AFile类
 let a = new AFile(gPath, gInfoPath, aPath, aInfoPath);
-// console.log(a);
 
-// 1. 导出动画0到文件1
-a.exportAnime(110505, true, './output/tmp3');
+// 1. 导出多个动画文件
+a.exportAnime(110505, './output/tmp3');
 
-// 2. 批量导出动画0-10到文件2
+a.exportAnime(110520, './output/tmp3');
+
+a.exportAnime(110526, './output/tmp3');
+
+a.exportAnime(110532, './output/tmp3');
+
+a.exportAnime(110544, './output/tmp3');
+
+a.exportAnime(110550, './output/tmp3');
 
 // 3. 释放a
+a.release();
 
-// 4. 实例化文件2
+// 4. 实例化文件1, 2-6
+let f1GPath = './output/tmp3/Graphic_110505.bin';
+let f1GInfoPath = './output/tmp3/GraphicInfo_110505.bin';
+let f1APath = './output/tmp3/Anime_110505.bin';
+let f1AInfoPath = './output/tmp3/AnimeInfo_110505.bin';
+let a1 = new AFile(f1GPath, f1GInfoPath, f1APath, f1AInfoPath);
 
-// 5. 将文件1追加到文件2
+// 5. 将文件2-5追加到文件1, 并删除文件2-5
+let list = [110520, 110526, 110532, 110544];
+for(let i=0;i<list.length;i++){
+    let f2GPath = `./output/tmp3/Graphic_${list[i]}.bin`;
+    let f2GInfoPath = `./output/tmp3/GraphicInfo_${list[i]}.bin`;
+    let f2APath = `./output/tmp3/Anime_${list[i]}.bin`;
+    let f2AInfoPath = `./output/tmp3/AnimeInfo_${list[i]}.bin`;
+    let _a = new AFile(f2GPath, f2GInfoPath, f2APath, f2AInfoPath);
+    a1.addAnime(_a);
 
-// 6. 删除文件1
+    _a.release();
 
-// 7. 删除文件2中的动画0
+    fs.unlinkSync(f2GPath);
+    fs.unlinkSync(f2GInfoPath);
+    fs.unlinkSync(f2APath);
+    fs.unlinkSync(f2AInfoPath);
+}
 
-// 8. 删除文件2中的动画3,4,5
+a1.save();
 
-// 9. 修改文件2中的动画10信息
+// 6. 将文件1追加到文件6, 并删除文件1
+let f6GPath = './output/tmp3/Graphic_110550.bin';
+let f6GInfoPath = './output/tmp3/GraphicInfo_110550.bin';
+let f6APath = './output/tmp3/Anime_110550.bin';
+let f6AInfoPath = './output/tmp3/AnimeInfo_110550.bin';
+let a6 = new AFile(f6GPath, f6GInfoPath, f6APath, f6AInfoPath);
+a6.addAnime(a1).save();
+
+fs.unlinkSync(f1GPath);
+fs.unlinkSync(f1GInfoPath);
+fs.unlinkSync(f1APath);
+fs.unlinkSync(f1AInfoPath);
+
+
+// 7. 删除文件1中的动画0
+
+// 8. 删除文件1中的动画3,4,5
+
+// 9. 修改文件1中的动画10信息
 
 
 
